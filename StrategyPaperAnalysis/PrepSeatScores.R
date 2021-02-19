@@ -27,6 +27,9 @@ clean_vraw<-function(x){
     x %<>% mutate({{ cmiss }} := 0)
   }
 
+  # strip subtotals
+  x %<>% filter(!is.na(disn))
+  
   #Adds votes received by coalition groups to the major party with which the coalition is associated.
   x %<>%
     mutate(pan = pan + panc) %>%
