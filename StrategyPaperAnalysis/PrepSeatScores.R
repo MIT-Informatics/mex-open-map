@@ -74,7 +74,7 @@ planProcessing.df %>% rowwise() %>% ## RETURN VALUE FROM LOCAL BLOCK
     ) %>% ungroup() 
 }) 
 
-vars.srclist = c("plan_2015","plan_2018")
+vars.srclist <- c("plan_2015","plan_2018")
 
 ## BEGIN LOCAL BLOCK
 planProcessing.df<- local({ 
@@ -118,7 +118,7 @@ calcActorDistrictTotals<- function (splan) {
 planProcessing.df %>% # RETURN Value for local block
   rowwise() %>%
   mutate( across(
-    c({{ vars.srclist}}) , 
+    c({{ vars.srclist }}) , 
     list( districts = ~list(calcDistrictTotals(.x)),
           actors = ~list(calcActorDistrictTotals(.x)))
   ))
