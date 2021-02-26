@@ -10,13 +10,14 @@ output:
 # Setup
 ```{r}
 ## Libraries
-require(tidyverse)
-require(tidylog)
-require(gt)
-require(grid)
-require(egg)
-require(gtable)
-require(webshot)
+library(tidyverse)
+library(magrittr)
+library(tidylog)
+library(gt)
+library(grid)
+library(egg)
+library(gtable)
+library(webshot)
 options("tidylog.display" = list())  # turn off
 ```
 ```{r, include=FALSE}
@@ -657,6 +658,47 @@ edon.tbl %>% pivot_wider(names_from=scenario,values_from=seats,values_fill=0) %>
 edon.tbl %>% pivot_wider(names_from=scenario,values_from=seats,values_fill=0) %>% group_by(year,year_elec,edon) %>%
              filter(year_elec == 2018 & year == 2017) %>% gt()
 ```
+
+# party plans
+```{r}
+
+planseats_2018.df <- planFull.df %>% rowwise() %>% filter(!is.null(plan) & VALIDPLAN) %>% unnest(plan_2018_actors_winMargins_actorWins) %>% select(planid,edon,year,win_actor,n) %>% rename(actor=win_actor,seats=n)
+
+planseats_2015.df <- planFull.df %>% rowwise() %>% filter(!is.null(plan) & VALIDPLAN) %>% unnest(plan_2015_actors_winMargins_actorWins) %>% select(planid,edon,year,win_actor,n) %>% rename(actor=win_actor,seats=n)
+
+actor_best.tbl = NULL
+
+for (i in c("MORENA","MC","PAN","PRI","PRD")) {
+
+actor_best.tbl %<>% bind_rows(
+planseats_2018.df %>% filter(actor=={{ i }}) %>% group_by(edon) %>% slice_max(seats) %>% slice_head(n=1) %>% ungroup() %>% summarize( actor=unique(actor), seats=sum(seats),type="max", year=2018)
+)
+  
+actor_best.tbl %<>% bind_rows(
+planseats_2015.df %>% filter(actor=={{ i }}) %>% group_by(edon) %>% slice_max(seats) %>% slice_head(n=1) %>% ungroup() %>% summarize( actor=unique(actor),type="max", seats=sum(seats), year=2015)
+)
+
+actor_best.tbl %<>% bind_rows(
+planseats_2018.df %>% filter(actor=={{ i }}) %>% group_by(edon) %>% slice_min(seats) %>% slice_head(n=1) %>% ungroup() %>% summarize( actor=unique(actor), type="min", seats=sum(seats), year=2018)
+)
+
+  
+actor_best.tbl %<>% bind_rows(
+planseats_2015.df %>% filter(actor=={{ i }}) %>% group_by(edon) %>% slice_min(seats) %>% slice_head(n=1) %>% ungroup() %>% summarize( actor=unique(actor), type="min",seats=sum(seats), year=2015)
+)
+
+
+}
+
+actor_best.tbl %>%
+  pivot_wider(names_from=type,values_from=seats) %>%
+  group_by(year) %>%
+  gt()
+  
+
+```
+
+
 #Diagnostics
 ```{r}
 seats.tbl %>% group_by(year,year_elec,scenario) %>% summarize(total=sum(seats))
