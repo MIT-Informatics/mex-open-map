@@ -611,6 +611,52 @@ seats.tbl %<>% bind_rows(
 seats.tbl %>% pivot_wider(names_from=scenario,values_from=seats,values_fill=0 ) %>% group_by(year,year_elec) %>% gt()
 ```
 
+#State Seat Analysis
+```{r}
+edon.tbl <- NULL
+edon.tbl %<>% bind_rows(
+  planFull.df %>% filter(win_final) %>% group_by(year, edon) %>%
+    summarize(results=list(bind_rows(plan_2015_actors_winMargins))) %>%
+    unnest(c(results,year)) %>% group_by(year, edon) %>% count(win_actor) %>%
+    rename(actor=win_actor,seats=n) %>% mutate(year_elec=2015, scenario="winner")
+)
+edon.tbl %<>% bind_rows(
+  planFull.df %>% filter(win_final) %>% group_by(year, edon) %>%
+    summarize(results=list(bind_rows(plan_2018_actors_winMargins))) %>%
+    unnest(c(results,year)) %>% group_by(year, edon) %>% count(win_actor) %>%
+    rename(actor=win_actor,seats=n) %>% mutate(year_elec=2018, scenario="winner")
+)
+
+edon.tbl %<>% bind_rows(
+  planFull.df %>% filter(best_plan) %>% group_by(year, edon) %>%
+    summarize(results=list(bind_rows(plan_2015_actors_winMargins))) %>%
+    unnest(c(results,year)) %>% group_by(year, edon) %>% count(win_actor) %>%
+    rename(actor=win_actor,seats=n) %>% mutate(year_elec=2015, scenario="best")
+)
+edon.tbl %<>% bind_rows(
+  planFull.df %>% filter(best_plan) %>% group_by(year, edon) %>%
+    summarize(results=list(bind_rows(plan_2018_actors_winMargins))) %>%
+    unnest(c(results,year)) %>% group_by(year, edon) %>% count(win_actor) %>%
+    rename(actor=win_actor,seats=n) %>% mutate(year_elec=2018, scenario="best")
+)
+edon.tbl %<>% bind_rows(
+  planFull.df %>% filter(first_appeared==1) %>% group_by(year, edon) %>%
+    summarize(results=list(bind_rows(plan_2015_actors_winMargins))) %>%
+    unnest(c(results,year)) %>% group_by(year, edon) %>% count(win_actor) %>%
+    rename(actor=win_actor,seats=n) %>% mutate(year_elec=2015, scenario="algorithm")
+)
+edon.tbl %<>% bind_rows(
+  planFull.df %>% filter(first_appeared==1) %>% group_by(year, edon) %>%
+    summarize(results=list(bind_rows(plan_2018_actors_winMargins))) %>%
+    unnest(c(results,year)) %>% group_by(year, edon) %>% count(win_actor) %>%
+    rename(actor=win_actor,seats=n) %>% mutate(year_elec=2018, scenario="algorithm")
+)
+
+edon.tbl %>% pivot_wider(names_from=scenario,values_from=seats,values_fill=0) %>% group_by(year,year_elec,edon) %>%
+             filter(year_elec == 2015 & year == 2013) %>% gt()
+edon.tbl %>% pivot_wider(names_from=scenario,values_from=seats,values_fill=0) %>% group_by(year,year_elec,edon) %>%
+             filter(year_elec == 2018 & year == 2017) %>% gt()
+```
 #Diagnostics
 ```{r}
 seats.tbl %>% group_by(year,year_elec,scenario) %>% summarize(total=sum(seats))
