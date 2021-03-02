@@ -65,6 +65,22 @@ standardizePlan <- function(plan,edon,votedf) {
 # were not recorded each time in the INE systems
 planProcessing.df <- propfull.df %>% filter(!is.null(plan)) %>% group_by(planid) %>% summarize(plan=head(plan,1), edon=head(edon,1))
 
+
+###
+### Extract 2004 status quo plan from raw- file and 
+###
+
+fed2004.tb <- read_csv("mxDistritos-data/raw-seccion-2015.csv")
+fed2004.tb %<>% 
+  select(edon,disn,seccion) %>% 
+  rename(district=disn) %>%
+  group_by(edon) %>%
+  summarise(plan = list(tibble(seccion,district))) %>%
+  mutate(planid=paste("base",edon,"2004",sep="-"))
+
+planProcessing.df %<>% bind_rows(fed2004.tb)
+
+
 # read  plan, and merge into a new plan column
 votes.2015.df <- read_csv("mxDistritos-data/raw-seccion-2015.csv")
 votes.2018.df <- read_csv("mxDistritos-data/raw-seccion-2018.csv")
