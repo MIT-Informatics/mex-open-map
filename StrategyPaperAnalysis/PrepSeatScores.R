@@ -50,7 +50,7 @@ clean_vraw<-function(x){
 standardizePlan <- function(plan,edon,votedf) {
   if(is.null(plan)) { return (NULL)}
   plan %<>% mutate(edon=edon)
-  plan %<>% left_join(votedf)
+  plan %<>% left_join(votedf, by = c("seccion", "edon"))
   plan %<>% filter(!is.na(district) & district>0)
   
   return (plan)
@@ -70,7 +70,8 @@ planProcessing.df <- propfull.df %>% filter(!is.null(plan)) %>% group_by(planid)
 ### Extract 2004 status quo plan from raw- file and 
 ###
 
-fed2004.tb <- read_csv("mxDistritos-data/raw-seccion-2015.csv")
+fed2004.tb <- read_csv("mxDistritos-data/raw-seccion-2015.csv",
+                       col_types=cols( .default = col_double()))
 fed2004.tb %<>% 
   select(edon,disn,seccion) %>% 
   rename(district=disn) %>%
@@ -82,8 +83,10 @@ planProcessing.df %<>% bind_rows(fed2004.tb)
 
 
 # read  plan, and merge into a new plan column
-votes.2015.df <- read_csv("mxDistritos-data/raw-seccion-2015.csv")
-votes.2018.df <- read_csv("mxDistritos-data/raw-seccion-2018.csv")
+votes.2015.df <- read_csv("mxDistritos-data/raw-seccion-2015.csv", 
+                          col_types=cols( .default = col_double()))
+votes.2018.df <- read_csv("mxDistritos-data/raw-seccion-2018.csv",
+                          col_types=cols( .default = col_double()))
 votes.2018.df %<>%  clean_vraw()
 votes.2015.df %<>%  clean_vraw()
 
@@ -119,7 +122,7 @@ calcDistrictTotals <- function (splan) {
     group_by(seccion) %>% slice_head(n=1) %>% # lisnom,efec are duplicated across rows per actor
     group_by(district) %>%
     summarise(across(c(efec,lisnom), list(total = ~sum(.x,na.rm=TRUE))))
-    splan %>% left_join(votes_total)
+    splan %>% left_join(votes_total,  by = "district")
 }
 
 # calcDistrictTotals 

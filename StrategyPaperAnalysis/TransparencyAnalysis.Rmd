@@ -565,6 +565,17 @@ comp.tbl %<>% bind_rows(
   )
 )
 
+comp.tbl %<>% bind_rows(
+  planProcessing.df %>% filter(str_starts(planid,"base")) %>% 
+    mutate(year=2004) %>%
+   group_by(year) %>% 
+  summarize(
+    scenario="status quo",
+    comp_2015=sum(plan_2015_actors_winMargins_compCount,na.rm=TRUE), 
+    comp_2018=sum(plan_2018_actors_winMargins_compCount,na.rm=TRUE)
+  )
+)
+
 comp.tbl %>% group_by(year) %>% gt()
 
 ```
@@ -608,6 +619,25 @@ seats.tbl %<>% bind_rows(
     unnest(c(results,year)) %>% group_by(year) %>% count(win_actor) %>%
     rename(actor=win_actor,seats=n) %>% mutate(year_elec=2018, scenario="algorithm")
 )
+
+seats.tbl %<>% bind_rows(
+  planProcessing.df %>% filter(str_starts(planid,"base")) %>% 
+  tidyr::crossing(year=c(2013,2017)) %>%
+   group_by(year) %>% 
+   summarize(results=list(bind_rows(plan_2018_actors_winMargins))) %>%
+   unnest(c(results,year)) %>% group_by(year) %>% count(win_actor) %>%
+  rename(actor=win_actor,seats=n) %>% mutate(year_elec=2018, scenario="status quo")
+)
+
+seats.tbl %<>% bind_rows(
+  planProcessing.df %>% filter(str_starts(planid,"base")) %>% 
+  tidyr::crossing(year=c(2013,2017)) %>%
+   group_by(year) %>% 
+   summarize(results=list(bind_rows(plan_2015_actors_winMargins))) %>%
+   unnest(c(results,year)) %>% group_by(year) %>% count(win_actor) %>%
+  rename(actor=win_actor,seats=n) %>% mutate(year_elec=2015, scenario="status quo")
+)
+
 
 seats.tbl %>% pivot_wider(names_from=scenario,values_from=seats,values_fill=0 ) %>% group_by(year,year_elec) %>% gt()
 ```
