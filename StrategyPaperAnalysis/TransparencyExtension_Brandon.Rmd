@@ -1,7 +1,11 @@
-```
+
 ```{r}
-url.file <- "https://raw.githubusercontent.com/emagar/elecRetrns/master/datosBrutos/resultCasillas/fed2018all/eum2018prca.csv"
-coalitions <- read.csv(url(url.file))
+coalitions_15 <- read.csv("Raw_Votes_2015.csv")
+coalitions_18 <- read.csv("Raw_Votes_2018.csv")
+
+
+
+
  
 ```
 

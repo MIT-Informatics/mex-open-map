@@ -525,6 +525,16 @@ plan.tgraph %>% ggraph() +
   geom_node_label(aes(label=actor,color=factor(actortype)))
 
 ```
+Seat Outcomes Based on INE Vote/District Tables
+```{r}
+Outcome_15 <- data.frame(actor = c("MORENA", "PAN", "PRI", "PRD", "PVEM", "MC", 
+                                   "PT", "PNA", "ES", "PH", "PRI-PVEM", "PRD-PT", "Independent"),
+                         seats = c( 14, 55, 25, 5, 0, 10, 0, 1, 0, 0, 160, 29, 1))
+Outcome_18 <- data.frame(actor = c("MORENA", "PAN", "PRI", "PRD", "PVEM", "MC", 
+                                   "PT", "PNA", "ES", "MORENA-PT-ES", "PAN-PRD-MC", "PRI-PVEM-PNA"),
+                         seats = c(8, 5, 1, 0, 0, 0, 0, 0, 0, 210, 63, 13))
+```
+
 #Outcome Analysis
 ```{r}
 source("PrepSeatScores.R",verbose=FALSE)
