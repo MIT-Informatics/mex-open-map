@@ -1,12 +1,31 @@
 
 ```{r}
-coalitions_15 <- read.csv("Raw_Votes_2015.csv")
+#coalitions_15 <- read.csv("Raw_Votes_2015.csv")
+
+
+
 coalitions_18 <- read.csv("Raw_Votes_2018.csv")
 
+coalitions_18 %<>%
+  rename(pna = panal,
+         es = pes,
+         pri.pvem.pna = pri.pvem.panal,
+         pri.pna = pri.panal,
+         pvem.pna = pvem.panal,
+         morena.pt.es = morena.pt.pes,
+         pt.es = pt.pes,
+         morena.es = morena.pes) %>%
+  pivot_longer(., cols = c("pan", "pri", "prd", "morena", "pt", "es", "pna", "pvem", "pan.prd.mc", "pan.prd", "pan.mc", "prd.mc", "pri.pvem.pna",
+                           "pri.pvem", "pri.pna", "pvem.pna", "morena.pt.es", "morena.pt", "pt.es", "morena.es"),
+                names_to = "actor",
+                values_to = "votes_2018") %>%
+  mutate(votes_2018 = as.numeric(votes_2018)) %>%
+  group_by(edon, disn, seccion, actor) %>%
+  summarise(., votes_2018 = sum(votes_2018),
+            efec = sum(TOTAL_VOTOS_CALCULADOS),
+            lisnom = sum(lisnom)) %>%
+  na.omit()
 
-
-
- 
 ```
 
 Preparing the Vote Share Data
