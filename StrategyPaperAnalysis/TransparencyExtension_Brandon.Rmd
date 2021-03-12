@@ -21,10 +21,9 @@ coalitions_18 %<>%
                 values_to = "votes_2018") %>%
   mutate(votes_2018 = as.numeric(votes_2018)) %>%
   group_by(edon, disn, seccion, actor) %>%
-  summarise(., votes_2018 = sum(votes_2018),
-            efec = sum(TOTAL_VOTOS_CALCULADOS),
-            lisnom = sum(lisnom)) %>%
-  na.omit()
+  summarise(., votes_2018 = sum(votes_2018), na.omit = TRUE,
+            efec = sum(TOTAL_VOTOS_CALCULADOS), na.omit = TRUE,
+            lisnom = sum(lisnom), na.omit = TRUE)
 
 
 ```
