@@ -1,6 +1,6 @@
 
 ```{r}
-#coalitions_15 <- read.csv("Raw_Votes_2015.csv")
+coalitions_15 <- read.csv("Raw_Votes_2015.csv")
 
 
 
@@ -25,6 +25,7 @@ coalitions_18 %<>%
             efec = sum(TOTAL_VOTOS_CALCULADOS),
             lisnom = sum(lisnom)) %>%
   na.omit()
+
 
 ```
 
