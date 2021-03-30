@@ -1,0 +1,37 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(utils)
+setwd("gis")
+otimeout <- getOption("timeout")
+options(timeout=1200)
+# TODO: There is probably a better source. Extract from 3GB Inegi census?
+download.file("https://pautas.ine.mx/transparencia/mapas/cob_2020/SECCION.zip","SECCION2.zip")
+options(timeout=otimeout)
+unzip("SECCION.zip")
+```
+
+
+
+```{r}
+library("sf")
+seccion_base.sf <- read_sf("gis/SECCION.shp", check_ring_dir=TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(magrittr)
+library(ggplot2)
+
+i<-1
+ 
+
+seccion_base.sf %>% filter(entidad==planFull.df[[i,"edon"]]) %>% 
+  left_join(planFull.df[[i,"plan"]][[1]],by=c("seccion")) %>% mutate(district=factor(district)) %>%
+  ggplot() + aes(fill=district) + geom_sf()
+```
+
