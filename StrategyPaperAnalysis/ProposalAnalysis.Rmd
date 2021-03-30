@@ -252,6 +252,20 @@ augment(glmfit) %>% ggplot(aes(didPropose,.fitted))+geom_jitter()+facet_grid(row
 ggcoef(glmfit)
 ```
 
+
+#Outcome Analysis
+```{r}
+source("PrepSeatScores.R",verbose=FALSE)
+```
+
+#Merge
+```{r}
+planFull <- left_join(propfull.df, planProcessing.df, by = "planid")
+``` 
+
+```{r}
+```
+
   #H.1.1.1.b 
 #Comparing the decision of the ruling party to formulate a counterproposal to other parties in states that have expereinced alternation in power. --> Requires a categorical variable capturing if degree of ALTERNATION or simply if single_pty_dom_00_17:False. This hypothesis is evaluating if the ruling party is more likely to formulate a counterporposal in states where there is single party rule, than in states where alternation takes place. 
 #Method: Difference of means test: H1: mean of ENTRY for the Ruling Party in states with single party dominance > mean of ENTRY for the Ruling Party in states that have experienced alternation; H0: mean of ENTRY for the Ruling Party in states with single party dominance <= mean of ENTRY for the Ruling Party in states that have experienced alternation. 
@@ -1195,4 +1209,4 @@ STOP READING HERE
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 Code
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
