@@ -27,11 +27,24 @@ library(tidyverse)
 library(magrittr)
 library(ggplot2)
 
-i<-1
+i<-2
  
 
 seccion_base.sf %>% filter(entidad==planFull.df[[i,"edon"]]) %>% 
   left_join(planFull.df[[i,"plan"]][[1]],by=c("seccion")) %>% mutate(district=factor(district)) %>%
   ggplot() + aes(fill=district) + geom_sf()
+
+
+```
+
+```{r}
+j<-3  # this has the same edon -- otherwise it ain't comparable :-)
+
+# assumes plans have same district numbering order -- TODO: reorder district numbers for best match before differencing
+dcomp<- full_join(planFull.df[[i,"plan"]][[1]],planFull.df[[j,"plan"]][[1]],by=c("seccion")) %>% mutate(district.diff=district.x==district.y)
+
+seccion_base.sf %>% filter(entidad==planFull.df[[i,"edon"]]) %>% 
+  left_join(dcomp,by=c("seccion"))  %>%
+  ggplot() + aes(fill=district.diff) + geom_sf()
 ```
 
