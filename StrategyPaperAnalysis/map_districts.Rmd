@@ -47,4 +47,14 @@ seccion_base.sf %>% filter(entidad==planFull.df[[i,"edon"]]) %>%
   left_join(dcomp,by=c("seccion"))  %>%
   ggplot() + aes(fill=district.diff) + geom_sf()
 ```
+```{r}
+i<-2 ; j <- 3
+plan_1.tbl <- planFull.df[[i,"plan"]][[1]]
+plan_2.tbl <- planFull.df[[j,"plan"]][[1]]
 
+dis_1.tbl <- plan_1.tbl %>% group_by(district) %>% summarize(seclist=list(seccion))
+dis_2.tbl <- plan_2.tbl %>% group_by(district) %>% summarize(seclist=list(seccion))
+
+#example of calculating size differences between two different districts, without assuming numbering is the same
+intersect(dis_1.tbl[1,"seclist"][[1]][[1]],dis_2.tbl[1,"seclist"][[1]][[1]])
+```
