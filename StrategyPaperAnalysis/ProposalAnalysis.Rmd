@@ -401,81 +401,7 @@ Variables
 #THEORY Parties competing together in a coalition should formulate the same plan. 
 Matching Process (Practice)
 
-```{r}
-#2.1 Code to create a proportion of success rate based on the proportion of plans adopted (Proportion winning   plans = Partisan plans that were adopted / Total amout of proposals formulated by each party)-->               This requires for the FIRST STAGE: 1) compareing the FIRST SCENARIO with PARTISAN PLANS, possible              outcomes in terms of the cost function: 
-
-
-##########################################################################################
-partisan_FS_SCORE.df <- matching.df.coal %>% filter(stage == 2) %>% select(edon, year, SCORE, actor) %>% rename(partisan_FS_SCORE = SCORE)
-partisan_SS_SCORE.df <- matching.df.coal %>% filter(stage == 4) %>% select(edon, year, SCORE, actor) %>% rename(partisan_SS_SCORE = SCORE)
-
-win_match.coal.df %<>% inner_join(partisan_FS_SCORE.df, by=c("edon", "year", "actor"))
-win_match.coal.df %<>% inner_join(partisan_SS_SCORE.df, by=c("edon", "year", "actor"))
-
-#a) First scenario > partisan plan, verify if partisan plan was accepted   (PARTISAN PLAN should match the score of the SECOND SCENARIO) --> Party Success!;
-win_match.coal.df %<>% group_by(edon, stage, year, govlevel, actor) %>% mutate(Scen.2.1.A = ifelse(FS_SCORE > partisan_FS_SCORE & partisan_FS_SCORE == SS_SCORE, 1, 0))
-
-#a.1 Second Scenario Partisan Plan == Win Score
-win_match.coal.df %<>% group_by(edon, stage, year, govlevel, actor) %>% mutate(Scen.2.1.A.1 = ifelse(SS_SCORE > partisan_SS_SCORE & partisan_SS_SCORE == Win_SCORE, 1, 0))
-
-#b) First scenario < cost than   partisan plans, verify if Fisrt scenario became the second scenario (FIRST SCENARIO should match the score of    the SECOND SCENARIO) --> EMB/Algorithm success!; 
-win_match.coal.df %<>% group_by(edon, stage, year, govlevel, actor) %>% mutate(Scen.2.1.B = ifelse(FS_SCORE < partisan_FS_SCORE & FS_SCORE == SS_SCORE, 1, 0))
-
-#c) First scenario > partisan plan, the outcome registered for the second scenario is different from partisan proposal --> ==Inconsistency type 1==, subsequent options: 
-win_match.coal.df %<>% group_by(edon, stage, year, govlevel, actor) %>% mutate(Inconsistency1 = ifelse(FS_SCORE > partisan_FS_SCORE & partisan_FS_SCORE != SS_SCORE, 1, 0))
-#d) First scenario < cost than partisan plans, the outcome registered for the second scenario is different from the First scenario --> ==Inconsistency type 2==, subsequent options:
-win_match.coal.df %<>% group_by(edon, stage, year, govlevel, actor) %>% mutate(Inconsistency2 = ifelse(FS_SCORE < partisan_FS_SCORE & FS_SCORE != SS_SCORE, 1, 0))
-
-win_match.coal.df %>% filter((actortype == "major" | actortype == "minor") & stage.x == 2) %>%
-  group_by(year, CoalitionType) %>% summarise(WIN = sum(Scen.2.1.A), denominator = sum(n()), percent = (WIN/denominator)*100) %>%
-  gt() %>%
-    cols_label("CoalitionType" = "Party", "WIN" = "Accepted Proposals", "denominator" = "Total Proposals", "percent" = "% Accepted") %>%
-    tab_header(title = "First Stage Redistricting Proposals")
-
-#Generating table for Second Stage Party Wins
-win_match.coal.df %>% filter((actortype == "major" | actortype == "minor") & stage.x == 4) %>%
-  group_by(year, CoalitionType) %>% summarise(WIN = sum(Scen.2.1.A.1), denominator = n(), percent = (WIN/denominator)*100) %>%
-  gt() %>%
-    cols_label("CoalitionType" = "Party", "WIN" = "Accepted Proposals", "denominator" = "Total Proposals", "percent" = "% Accepted") %>%
-    tab_header(title = "Second Stage Redistricting Proposals")
-
-win_match.coal.df <- unique(win_match.coal.df)
-
-major.score <- matching.df.coal %>% filter(actortype == "major" & stage == 2) %>% select(edon, year, govlevel, SCORE, actor) %>% rename(Maj_Party_Score = SCORE)
-matching.df.coal <- left_join(matching.df.coal, major.score, by=c("edon", "year", "govlevel"))
-matching.df.coal <- matching.df.coal %>%
-  group_by(edon, year, govlevel, coalition) %>%
-  mutate(maj_min_match = if_else(SCORE == Maj_Party_Score, 1, 0))
-
-matching.df.coal <- unique(matching.df.coal)
-
-matching.df.coal %>% filter(actortype == "minor" & stage.x == 2) %>%
-  group_by(edon, govlevel, year, coalition, maj_min_match) %>%
-  filter(year == 2013) %>%
-  summarise(., n()) %>%
-  gt()
-
-matching.df.coal %>% filter(actortype == "minor" & stage.x == 2) %>%
-  group_by(edon, govlevel,  year, coalition, maj_min_match) %>%
-  filter(year == 2017) %>%
-  summarise(., n()) %>%
-  gt()
-####STAGES
-
-#Stage 2 = Stage 1
-#Stage 4 = Stage 2
-#the other stages capture other score related data
-
-#0.2 The EMB/Algorithm should be treated as an "actor" in the game (and in the analysis of #1 and #2 below), where the scroe associated to the FIRST SCENARIO should be treated as its own plan. If this plans prevails across the two stages --> EMB/Algorithm wins
-
-#0.3 Level of Engagement.This measure captures the degree of intensity of partisan engagment in the process by year. In general, we think of engagment as an ordinal variable, where the minimum level of partisan engagment in a given year is 0 (a party does not formulate a counterproposal in a state at any stage or level) and the maximum degree of engagment is 4 (a party fomulates a counterproposal in two stages and at the two levels at a given state/year). 
-
-  #0.3.1 Count Measure of engagment --> Code that aggregates the level of engagment by parties for every           state/year. Possible categories: i. Parties at the minimum do not engage at all in the process for a given       state/year (0), ii. Parties formulated only one proposal (regardles of the stage and level), iii. Parties        formulates two proposals (regardles of the stage and level), iv.Parties formulated three proposals (regardles    of the stage and level), and v. Parties formulated four proposals (regardles of the stage and level). 
-
-  #0.3.2 Descriptive level of engagment by party  --> Code for generating tables and visualizations that           aggregate proposals by party at the year, stage, and level. 
-
-  #0.3.3 Descriptive level of engagment by party and state  --> Code for generating tables and visualizations      that aggregate proposals by party at the year, stage, and level.
-```
+# Party Scores by Stage
 
 ```{r}
 #1.Efficiency hypothesis (Part 1: lowest score): RQ: Which party/parties were more effective in formulating plans with the lowest cost? --> We theorize that 1) major parties will be more efficient than smaller ones, 2) that PAN, at least in 2013 and at the national level, was the most efficent party because of its level of professionalization, and 3) that because of algorithm efficeny and learning experience, 3.1) PAN became less efficient between 2013 and 2017, and 3.2) other parties performed better between years and levels. 
@@ -509,7 +435,7 @@ matching.df.1 %>% ggplot(aes(govlevel, minSCOREnum, color = year)) + geom_jitter
 
       #1.2.2 --> Evaluation Questions (Bias/Transparency): a) Was there a party that sistematically proposed           lower cost scenarios?
 ```
-
+#Party Scores by Year
 ```{r}
 #2. Efficiency hypothesis (Part 2: winning proposals) RQ: Which party/parties were more effective in formulating plans that were accepted by the TC/EMB? --> Again (same as #1, but evaluated with a different measure), we theorize that [[1. DID THE PARTY "WIN" & 2. DID THEY WIN WITH MINSCORE?]]
 
@@ -590,8 +516,10 @@ win_match.df %<>% group_by(edon, stage, year, govlevel, actor) %>% mutate(Incons
 #3.1 When comparing efficiency (lowest and winning proposals), is there evdidence showing that the propotion of lower scores in 2013 > than in 2017? 
 
 #3.2 Were EMB/Algorithm proposals more effective in 2017 than in 2013?
+```
 
-
+#Win/Proposals by Stage
+```{r}
 ############
 #Generating Table for Overall wins by party by year
 win_match.df %>% filter((actortype == "major" | actortype == "minor")) %>%
@@ -613,6 +541,8 @@ win_match.df %>% filter((actortype == "major" | actortype == "minor") & stage.x 
     tab_header(title = "Second Stage Redistricting Proposals")
 
 ```
+### WORK IN PROGRESS ###
+
 ```{r}
 #0.1 Coalition hypothesis: If a coalition was formed, Did the plan of minor party(ies) match the score of the major party? --> This is just for verifying our assumption (robustness check). 
 
@@ -683,7 +613,81 @@ WM_coal.df %<>% group_by(edon, year, govlevel) %>%
          ACTOR_WIN2 = if_else(partisan_SS_SCORE == Win_SCORE, 1, 0),
          ALG_WIN = if_else(FS_SCORE == Win_SCORE, 1, 0))
 ```
+```{r}
+#2.1 Code to create a proportion of success rate based on the proportion of plans adopted (Proportion winning   plans = Partisan plans that were adopted / Total amout of proposals formulated by each party)-->               This requires for the FIRST STAGE: 1) compareing the FIRST SCENARIO with PARTISAN PLANS, possible              outcomes in terms of the cost function: 
 
+
+##########################################################################################
+partisan_FS_SCORE.df <- matching.df.coal %>% filter(stage == 2) %>% select(edon, year, SCORE, actor) %>% rename(partisan_FS_SCORE = SCORE)
+partisan_SS_SCORE.df <- matching.df.coal %>% filter(stage == 4) %>% select(edon, year, SCORE, actor) %>% rename(partisan_SS_SCORE = SCORE)
+
+win_match.coal.df %<>% inner_join(partisan_FS_SCORE.df, by=c("edon", "year", "actor"))
+win_match.coal.df %<>% inner_join(partisan_SS_SCORE.df, by=c("edon", "year", "actor"))
+
+#a) First scenario > partisan plan, verify if partisan plan was accepted   (PARTISAN PLAN should match the score of the SECOND SCENARIO) --> Party Success!;
+win_match.coal.df %<>% group_by(edon, stage, year, govlevel, actor) %>% mutate(Scen.2.1.A = ifelse(FS_SCORE > partisan_FS_SCORE & partisan_FS_SCORE == SS_SCORE, 1, 0))
+
+#a.1 Second Scenario Partisan Plan == Win Score
+win_match.coal.df %<>% group_by(edon, stage, year, govlevel, actor) %>% mutate(Scen.2.1.A.1 = ifelse(SS_SCORE > partisan_SS_SCORE & partisan_SS_SCORE == Win_SCORE, 1, 0))
+
+#b) First scenario < cost than   partisan plans, verify if Fisrt scenario became the second scenario (FIRST SCENARIO should match the score of    the SECOND SCENARIO) --> EMB/Algorithm success!; 
+win_match.coal.df %<>% group_by(edon, stage, year, govlevel, actor) %>% mutate(Scen.2.1.B = ifelse(FS_SCORE < partisan_FS_SCORE & FS_SCORE == SS_SCORE, 1, 0))
+
+#c) First scenario > partisan plan, the outcome registered for the second scenario is different from partisan proposal --> ==Inconsistency type 1==, subsequent options: 
+win_match.coal.df %<>% group_by(edon, stage, year, govlevel, actor) %>% mutate(Inconsistency1 = ifelse(FS_SCORE > partisan_FS_SCORE & partisan_FS_SCORE != SS_SCORE, 1, 0))
+#d) First scenario < cost than partisan plans, the outcome registered for the second scenario is different from the First scenario --> ==Inconsistency type 2==, subsequent options:
+win_match.coal.df %<>% group_by(edon, stage, year, govlevel, actor) %>% mutate(Inconsistency2 = ifelse(FS_SCORE < partisan_FS_SCORE & FS_SCORE != SS_SCORE, 1, 0))
+
+win_match.coal.df %>% filter((actortype == "major" | actortype == "minor") & stage.x == 2) %>%
+  group_by(year, CoalitionType) %>% summarise(WIN = sum(Scen.2.1.A), denominator = sum(n()), percent = (WIN/denominator)*100) %>%
+  gt() %>%
+    cols_label("CoalitionType" = "Party", "WIN" = "Accepted Proposals", "denominator" = "Total Proposals", "percent" = "% Accepted") %>%
+    tab_header(title = "First Stage Redistricting Proposals")
+
+#Generating table for Second Stage Party Wins
+win_match.coal.df %>% filter((actortype == "major" | actortype == "minor") & stage.x == 4) %>%
+  group_by(year, CoalitionType) %>% summarise(WIN = sum(Scen.2.1.A.1), denominator = n(), percent = (WIN/denominator)*100) %>%
+  gt() %>%
+    cols_label("CoalitionType" = "Party", "WIN" = "Accepted Proposals", "denominator" = "Total Proposals", "percent" = "% Accepted") %>%
+    tab_header(title = "Second Stage Redistricting Proposals")
+
+win_match.coal.df <- unique(win_match.coal.df)
+
+major.score <- matching.df.coal %>% filter(actortype == "major" & stage == 2) %>% select(edon, year, govlevel, SCORE, actor) %>% rename(Maj_Party_Score = SCORE)
+matching.df.coal <- left_join(matching.df.coal, major.score, by=c("edon", "year", "govlevel"))
+matching.df.coal <- matching.df.coal %>%
+  group_by(edon, year, govlevel, coalition) %>%
+  mutate(maj_min_match = if_else(SCORE == Maj_Party_Score, 1, 0))
+
+matching.df.coal <- unique(matching.df.coal)
+
+matching.df.coal %>% filter(actortype == "minor" & stage.x == 2) %>%
+  group_by(edon, govlevel, year, coalition, maj_min_match) %>%
+  filter(year == 2013) %>%
+  summarise(., n()) %>%
+  gt()
+
+matching.df.coal %>% filter(actortype == "minor" & stage.x == 2) %>%
+  group_by(edon, govlevel,  year, coalition, maj_min_match) %>%
+  filter(year == 2017) %>%
+  summarise(., n()) %>%
+  gt()
+####STAGES
+
+#Stage 2 = Stage 1
+#Stage 4 = Stage 2
+#the other stages capture other score related data
+
+#0.2 The EMB/Algorithm should be treated as an "actor" in the game (and in the analysis of #1 and #2 below), where the scroe associated to the FIRST SCENARIO should be treated as its own plan. If this plans prevails across the two stages --> EMB/Algorithm wins
+
+#0.3 Level of Engagement.This measure captures the degree of intensity of partisan engagment in the process by year. In general, we think of engagment as an ordinal variable, where the minimum level of partisan engagment in a given year is 0 (a party does not formulate a counterproposal in a state at any stage or level) and the maximum degree of engagment is 4 (a party fomulates a counterproposal in two stages and at the two levels at a given state/year). 
+
+  #0.3.1 Count Measure of engagment --> Code that aggregates the level of engagment by parties for every           state/year. Possible categories: i. Parties at the minimum do not engage at all in the process for a given       state/year (0), ii. Parties formulated only one proposal (regardles of the stage and level), iii. Parties        formulates two proposals (regardles of the stage and level), iv.Parties formulated three proposals (regardles    of the stage and level), and v. Parties formulated four proposals (regardles of the stage and level). 
+
+  #0.3.2 Descriptive level of engagment by party  --> Code for generating tables and visualizations that           aggregate proposals by party at the year, stage, and level. 
+
+  #0.3.3 Descriptive level of engagment by party and state  --> Code for generating tables and visualizations      that aggregate proposals by party at the year, stage, and level.
+```
 #DIAGNOSTICS: a) Breakdown of proposals matching scores when parties ran in coalition (create a dummy)
 
 
