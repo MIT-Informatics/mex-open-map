@@ -146,7 +146,6 @@ table(as.factor(ys.proposed$actor))
 xtab.result <- ys.proposed %>% filter(actortype=="minor" || actortype=="major") %>% xtabs(~actortype+year+didPropose+StratPos,.,drop.unused.levels = TRUE)
 ftable(xtab.result)
 
-#gt(ftable(xtab.result))
 
 ```
 
@@ -155,7 +154,7 @@ ftable(xtab.result)
 #CLM model first
 clm.mod <- ys.proposed %>% clm(as.ordered(didPropose)~as.ordered(PartyStratPos), data=., HESS=TRUE)
 summary(clm.mod)
-confint(clm.mod)
+#confint(clm.mod)
 exp(coef(clm.mod)[2])
 exp(coef(clm.mod)[3]) 
 exp(coef(clm.mod)[4])
@@ -259,19 +258,61 @@ ggcoef(glmfit)
 algo1 <- propfull.df %>%
   filter(stage == 1) %>%
   mutate(Score_1 = case_when(stage == 1 ~ SCORE))
+algo3 <- propfull.df %>%
+  filter(stage == 3) %>%
+  mutate(Score_3 = case_when(stage == 3 ~ SCORE))
 algo5 <- propfull.df %>%
   filter(stage == 5) %>%
   mutate(Score_5 = case_when(stage == 5 ~ SCORE))
 
 algo <- left_join(algo1, algo5, by = c("edon", "year"))
+algo <- left_join(algo, algo3, by = c("edon", "year"))
 algo <- algo %>%
-  mutate(EQ = if_else(Score_1 == Score_5, 1, 0))
+  mutate(EQ_1 = if_else(Score_1 == Score_5, 1, 0),
+         EQ_2 = if_else(Score_3 == Score_5, 1, 0))
 
-p <- ggplot(algo, aes(x = Score_1, y = Score_5, color = EQ)) +
+algo %>% ggplot(aes(x = Score_1, y = Score_5, color = EQ_1)) +
   geom_jitter()
-p
+algo %>% ggplot(aes(x = Score_3, y = Score_5, color = EQ_2)) +
+  geom_jitter()
 
 ```
+
+###Normalized Scores
+```{r}
+algo_1.1 <- algo1 %>%
+  select(edon, year, Score_1) %>%
+  rename(WinSCORE_1 = Score_1)
+algo_3.1 <- algo3 %>%
+  select(edon, year, Score_3) %>%
+  rename(WinSCORE_2 = Score_3)
+algo_5.1 <- algo5 %>%
+  select(edon, year, Score_5) %>%
+  rename(WinSCORE_final = Score_5)
+
+diff <- left_join(propfull.df, algo_1.1, by = c("edon", "year"))
+diff <- left_join(diff, algo_3.1)
+diff <- left_join(diff, algo_5.1)
+
+diff <- diff %>%
+  filter(PROPOSED == TRUE) %>%
+  filter(stage == 2 | stage == 4) %>%
+  group_by(edon, year, stage) %>%
+  mutate(diff_1 = (SCORE - WinSCORE_1),
+         diff_2 = (SCORE - WinSCORE_2),
+         diff_3 = (SCORE - WinSCORE_final))
+
+diff %>%
+  ggplot(aes(stage, diff_1)) + geom_jitter() + facet_wrap(~year)
+#Partisan scores in stage 1 & 2 relative to the initial algorithm proposal (stage == 1)
+diff %>%
+  ggplot(aes(stage, diff_2)) + geom_jitter() + facet_wrap(~year)
+#Partisan scores in stage 1 & 2 relative to the score which "won" the  first round (stage ==3)
+diff %>%
+  ggplot(aes(stage, diff_3)) + geom_jitter() + facet_wrap(~year)
+#Partisan scores in stage 1 & 2 relative to the score which won the redistricting process (in each state) (stage == 5)
+```
+
 
   #H.1.1.1.b 
 #Comparing the decision of the ruling party to formulate a counterproposal to other parties in states that have expereinced alternation in power. --> Requires a categorical variable capturing if degree of ALTERNATION or simply if single_pty_dom_00_17:False. This hypothesis is evaluating if the ruling party is more likely to formulate a counterporposal in states where there is single party rule, than in states where alternation takes place. 
@@ -433,7 +474,7 @@ matching.df.1 %>% ggplot(aes(govlevel, minSCOREnum, color = year)) + geom_jitter
 
       #1.2.1--> Descriptive results by party (lowest score): Create code: Descriptive graphs and tables. 
 
-      #1.2.2 --> Evaluation Questions (Bias/Transparency): a) Was there a party that sistematically proposed           lower cost scenarios?
+      #1.2.2 --> Evaluation Questions (Bias/Transparency): a) Was there a party that sistematically proposed lower cost scenarios?
 ```
 #Party Scores by Year
 ```{r}
@@ -467,6 +508,8 @@ partisan_SS_SCORE.df <- matching.df.1 %>% filter(stage == 4) %>% select(edon, ye
 
 win_match.df %<>% inner_join(partisan_FS_SCORE.df, by=c("edon", "year", "actor"))
 win_match.df %<>% inner_join(partisan_SS_SCORE.df, by=c("edon", "year", "actor"))
+win_match.df <- win_match.df %>%
+  distinct(.,  .keep_all = TRUE)
 #do the subsetting thing from line 450 for parties -- state year party score -- filter by stage again -- i can compare to FS_SCORE and SS_SCORE and to the indv party scores (PARTISAN_FS_SCORE and PARTISAN_SS_SCORE)
 #######SCORE Stage == 2 equivalent to SCORE Stage ==4
 #group by party and all the other things = create neww var that generates the score for each stage
