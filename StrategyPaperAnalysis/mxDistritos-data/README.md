@@ -4,3 +4,4 @@ Files from https://github.com/emagar/mxDistritos repository
   https://github.com/emagar/mxDistritos/blob/master/data/dipfed2015seccion-vhat.csv
 - Provides proposal to seccione mapping
   https://github.com/emagar/mxDistritos/tree/master/redisProcess/ineRedist2017/deJsonConEtiquetas/fed
+- Academic folder contains PRI-maximizing gerrymanders of Mexico State, part of a project led by Eric Magar
