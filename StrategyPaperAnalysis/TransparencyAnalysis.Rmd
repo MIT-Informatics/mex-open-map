@@ -654,6 +654,115 @@ seats.tbl %<>% bind_rows(
 seats.tbl %>% pivot_wider(names_from=scenario,values_from=seats,values_fill=0 ) %>% group_by(year,year_elec) %>% gt()
 ```
 
+
+
+```{r mexico state gerrymandering comparison}
+seats_mex.tbl <- NULL
+seats_mex.tbl %<>% bind_rows(
+  planFull.df %>% filter(win_final) %>% 
+    filter(edon==15) %>%
+    group_by(year) %>%
+    summarize(results=list(bind_rows(plan_2015_actors_winMargins))) %>%
+    unnest(c(results,year)) %>% group_by(year) %>% count(win_actor) %>%
+    rename(actor=win_actor,seats=n) %>% mutate(year_elec=2015, scenario="winner")
+)
+seats_mex.tbl %<>% bind_rows(
+  planFull.df %>% filter(win_final) %>%
+    filter(edon==15) %>%
+    group_by(year) %>%
+    summarize(results=list(bind_rows(plan_2018_actors_winMargins))) %>%
+    unnest(c(results,year)) %>% group_by(year) %>% count(win_actor) %>%
+    rename(actor=win_actor,seats=n) %>% mutate(year_elec=2018, scenario="winner")
+)
+
+seats_mex.tbl %<>% bind_rows(
+  planFull.df %>% filter(first_appeared==1) %>% 
+    filter(edon==15) %>%
+    group_by(year) %>%
+    summarize(results=list(bind_rows(plan_2015_actors_winMargins))) %>%
+    unnest(c(results,year)) %>% group_by(year) %>% count(win_actor) %>%
+    rename(actor=win_actor,seats=n) %>% mutate(year_elec=2015, scenario="algorithm")
+)
+seats_mex.tbl %<>% bind_rows(
+  planFull.df %>% filter(first_appeared==1) %>% 
+    filter(edon==15) %>%
+    group_by(year) %>%
+    summarize(results=list(bind_rows(plan_2018_actors_winMargins))) %>%
+    unnest(c(results,year)) %>% group_by(year) %>% count(win_actor) %>%
+    rename(actor=win_actor,seats=n) %>% mutate(year_elec=2018, scenario="algorithm")
+)
+
+seats_mex.tbl %<>% bind_rows(
+  planProcessing.df %>% filter(str_starts(planid,"base")) %>% 
+  filter(edon==15) %>%
+  tidyr::crossing(year=c(2013,2017)) %>%
+   group_by(year) %>% 
+   summarize(results=list(bind_rows(plan_2018_actors_winMargins))) %>%
+   unnest(c(results,year)) %>% group_by(year) %>% count(win_actor) %>%
+  rename(actor=win_actor,seats=n) %>% mutate(year_elec=2018, scenario="status quo")
+)
+
+seats_mex.tbl %<>% bind_rows(
+  planProcessing.df %>% filter(str_starts(planid,"base")) %>%
+    filter(edon==15) %>%
+  tidyr::crossing(year=c(2013,2017)) %>%
+   group_by(year) %>% 
+   summarize(results=list(bind_rows(plan_2015_actors_winMargins))) %>%
+   unnest(c(results,year)) %>% group_by(year) %>% count(win_actor) %>%
+  rename(actor=win_actor,seats=n) %>% mutate(year_elec=2015, scenario="status quo")
+)
+
+## find best of the academic plans
+
+ academic_2018.tbl <- planProcessing.df %>% filter(str_starts(planid,"academic-pri")) %>% 
+    filter(edon==15) %>% 
+    select(planid,plan_2018_actors_winMargins) %>% 
+    unnest(plan_2018_actors_winMargins) %>% 
+    group_by(planid,win_actor) %>%
+    count()
+  
+  best_2018 <- academic_2018.tbl %>% group_by(planid) %>%
+    mutate(PRI_SEATS=n[which(win_actor=="PRI")]) %>% 
+    ungroup %>%
+    arrange(desc(PRI_SEATS)) %>% 
+    slice_head %>% select(planid) %>% pull
+ 
+  seats_mex.tbl %<>% bind_rows(
+  academic_2018.tbl %>% filter(planid==best_2018) %>% 
+    rename(actor="win_actor",seats=n) %>%
+    mutate(year_elec="2018",scenario="academic") %>%
+    tidyr::crossing(year=c(2013,2017))
+  
+   academic_2015.tbl <- planProcessing.df %>% filter(str_starts(planid,"academic-pri")) %>% 
+    filter(edon==15) %>% 
+    select(planid,plan_2015_actors_winMargins) %>% 
+    unnest(plan_2015_actors_winMargins) %>% 
+    group_by(planid,win_actor) %>%
+    count()
+  
+  best_2015 <- academic_2015.tbl %>% group_by(planid) %>%
+    mutate(PRI_SEATS=n[which(win_actor=="PRI")]) %>% 
+    ungroup %>%
+    arrange(desc(PRI_SEATS)) %>% 
+    slice_head %>% select(planid) %>% pull
+ 
+  seats_mex.tbl %<>% bind_rows(
+  academic_2015.tbl %>% filter(planid==best_2015) %>% 
+    rename(actor="win_actor",seats=n) %>%
+    mutate(year_elec="2015",scenario="academic") %>%
+    tidyr::crossing(year=c(2013,2017))
+
+
+
+seats_mex.tbl %>% pivot_wider(names_from=scenario,values_from=seats,values_fill=0 ) %>% group_by(year,year_elec) %>% gt() %>
+    tab_header(title="Mexico State -- Comparing Party Plans &  Academic Gerrymandering Excercise") %>%
+    gt_theme_538()
+
+
+
+```
+
+
 #State Seat Analysis
 ```{r}
 edon.tbl <- NULL

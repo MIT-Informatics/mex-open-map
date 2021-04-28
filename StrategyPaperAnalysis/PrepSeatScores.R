@@ -15,6 +15,7 @@
 # use a local blocks to keep environment neat, only the objects defined outside will remain after run
 ## BEGIN LOCAL BLOCK
 planProcessing.df <- local({ 
+  planProcessing.df<-NULL
 ## 
 ## Data cleaning functions 
 ##
@@ -80,6 +81,19 @@ fed2004.tb %<>%
   mutate(planid=paste("base",edon,"2004",sep="-"))
 
 planProcessing.df %<>% bind_rows(fed2004.tb)
+
+pri_paths <- dir("mxDistritos-data/academic/",pattern="\\.csv$",full.names=TRUE)
+pri_gerry.ls <-map(pri_paths,  read_csv, col_names=c("seccion_char","district","seats"), col_types=cols_only(seccion_char="c",district="i"))
+pri_gerry.tbl <- tibble(plan=pri_gerry.ls,
+                        planid=paste(sep="-","academic","pri",
+                                     str_match(sapply(str_split(pri_paths,"/"),tail,n=1),"(.*?)\\.csv")[,2]),
+                        edon=15)
+
+pri_gerry.tbl %<>% unnest(plan) %>% 
+    mutate(seccion= as.integer(str_sub(seccion_char,start=-4))) %>%
+    select(-seccion_char) %>% nest(plan=c(seccion,district))
+
+planProcessing.df %<>% bind_rows(pri_gerry.tbl,.)
 
 
 # read  plan, and merge into a new plan column
