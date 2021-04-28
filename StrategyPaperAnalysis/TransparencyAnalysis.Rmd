@@ -656,7 +656,7 @@ seats.tbl %>% pivot_wider(names_from=scenario,values_from=seats,values_fill=0 ) 
 
 
 
-```{r mexico state gerrymandering comparison}
+```{r mexico-state-gerrymandering}
 seats_mex.tbl <- NULL
 seats_mex.tbl %<>% bind_rows(
   planFull.df %>% filter(win_final) %>% 
@@ -719,7 +719,7 @@ seats_mex.tbl %<>% bind_rows(
     select(planid,plan_2018_actors_winMargins) %>% 
     unnest(plan_2018_actors_winMargins) %>% 
     group_by(planid,win_actor) %>%
-    count()
+    count() %>% ungroup
   
   best_2018 <- academic_2018.tbl %>% group_by(planid) %>%
     mutate(PRI_SEATS=n[which(win_actor=="PRI")]) %>% 
@@ -730,15 +730,17 @@ seats_mex.tbl %<>% bind_rows(
   seats_mex.tbl %<>% bind_rows(
   academic_2018.tbl %>% filter(planid==best_2018) %>% 
     rename(actor="win_actor",seats=n) %>%
-    mutate(year_elec="2018",scenario="academic") %>%
+    select(-planid) %>%
+    mutate(year_elec=2018,scenario="academic") %>%
     tidyr::crossing(year=c(2013,2017))
+  )
   
    academic_2015.tbl <- planProcessing.df %>% filter(str_starts(planid,"academic-pri")) %>% 
     filter(edon==15) %>% 
     select(planid,plan_2015_actors_winMargins) %>% 
     unnest(plan_2015_actors_winMargins) %>% 
     group_by(planid,win_actor) %>%
-    count()
+    count() %>% ungroup
   
   best_2015 <- academic_2015.tbl %>% group_by(planid) %>%
     mutate(PRI_SEATS=n[which(win_actor=="PRI")]) %>% 
@@ -749,12 +751,15 @@ seats_mex.tbl %<>% bind_rows(
   seats_mex.tbl %<>% bind_rows(
   academic_2015.tbl %>% filter(planid==best_2015) %>% 
     rename(actor="win_actor",seats=n) %>%
-    mutate(year_elec="2015",scenario="academic") %>%
+    select(-planid) %>%
+    mutate(year_elec=2015,scenario="academic") %>%
     tidyr::crossing(year=c(2013,2017))
+)
 
-
-
-seats_mex.tbl %>% pivot_wider(names_from=scenario,values_from=seats,values_fill=0 ) %>% group_by(year,year_elec) %>% gt() %>
+seats_mex.tbl %>%
+  pivot_wider(names_from=scenario,values_from=seats,values_fill=0 ) %>%
+  group_by(year,year_elec) %>% 
+  gt() %>%
     tab_header(title="Mexico State -- Comparing Party Plans &  Academic Gerrymandering Excercise") %>%
     gt_theme_538()
 
