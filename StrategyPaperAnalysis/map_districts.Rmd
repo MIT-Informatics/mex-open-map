@@ -63,7 +63,7 @@ intersect(dis_1.tbl[1,"seclist"][[1]][[1]],dis_2.tbl[1,"seclist"][[1]][[1]])
 
 ###Comparing Algorithm Plans
 ```{r}
-i<-50
+i<-314
  
 
 seccion_base.sf %>% filter(entidad==planProcessing.df[[i,"edon"]]) %>% 
@@ -73,7 +73,7 @@ seccion_base.sf %>% filter(entidad==planProcessing.df[[i,"edon"]]) %>%
 
 ```
 ```{r}
-j<-9  # this has the same edon -- otherwise it ain't comparable :-)
+j<-149  # this has the same edon -- otherwise it ain't comparable :-)
 
 # assumes plans have same district numbering order -- TODO: reorder district numbers for best match before differencing
 dcomp<- full_join(planProcessing.df[[i,"plan"]][[1]],planProcessing.df[[j,"plan"]][[1]],by=c("seccion")) %>% mutate(district.diff=district.x==district.y)
@@ -81,7 +81,7 @@ dcomp<- full_join(planProcessing.df[[i,"plan"]][[1]],planProcessing.df[[j,"plan"
 seccion_base.sf %>% filter(entidad==planProcessing.df[[i,"edon"]]) %>% 
   left_join(dcomp,by=c("seccion"))  %>%
   ggplot() + aes(fill=district.diff) + geom_sf()
-i<-50 ; j <- 9
+i<-314 ; j <- 149
 plan_1.tbl <- planFull.df[[i,"plan"]][[1]]
 plan_2.tbl <- planFull.df[[j,"plan"]][[1]]
 
