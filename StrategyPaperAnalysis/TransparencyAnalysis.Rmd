@@ -554,8 +554,8 @@ comp.tbl %<>% bind_rows(
   group_by(year) %>% 
   summarize(
     scenario="winner",
-    comp_2015=sum(plan_2015_actors_winMargins_ount,na.rm=TRUE), 
-    comp_2018=sum(plan_2018_actors_winMargins_ount,na.rm=TRUE), 
+    comp_2015=sum(plan_2015_actors_winMargins_compCount,na.rm=TRUE), 
+    comp_2018=sum(plan_2018_actors_winMargins_compCount,na.rm=TRUE), 
   )
 )
 comp.tbl %<>% bind_rows(
@@ -563,8 +563,8 @@ comp.tbl %<>% bind_rows(
   group_by(year) %>% 
   summarize(
     scenario="best",
-    comp_2015=sum(plan_2015_actors_winMargins_ount,na.rm=TRUE), 
-    comp_2018=sum(plan_2018_actors_winMargins_ount,na.rm=TRUE), 
+    comp_2015=sum(plan_2015_actors_winMargins_compCount,na.rm=TRUE), 
+    comp_2018=sum(plan_2018_actors_winMargins_compCount,na.rm=TRUE), 
   )
 )
 
@@ -573,8 +573,8 @@ comp.tbl %<>% bind_rows(
   group_by(year) %>% 
   summarize(
     scenario="algorithm",
-    comp_2015=sum(plan_2015_actors_winMargins_ount,na.rm=TRUE), 
-    comp_2018=sum(plan_2018_actors_winMargins_ount,na.rm=TRUE)
+    comp_2015=sum(plan_2015_actors_winMargins_compCount,na.rm=TRUE), 
+    comp_2018=sum(plan_2018_actors_winMargins_compCount,na.rm=TRUE)
   )
 )
 
@@ -584,8 +584,8 @@ comp.tbl %<>% bind_rows(
    group_by(year) %>% 
   summarize(
     scenario="status quo",
-    comp_2015=sum(plan_2015_actors_winMargins_ount,na.rm=TRUE), 
-    comp_2018=sum(plan_2018_actors_winMargins_ount,na.rm=TRUE)
+    comp_2015=sum(plan_2015_actors_winMargins_compCount,na.rm=TRUE), 
+    comp_2018=sum(plan_2018_actors_winMargins_compCount,na.rm=TRUE)
   )
 )
 
