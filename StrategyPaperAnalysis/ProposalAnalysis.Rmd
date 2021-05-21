@@ -232,6 +232,48 @@ confusionMatrix(as.factor(ys.proposed$clmm50), as.factor(ys.proposed$didPropose.
 confusionMatrix(as.factor(ys.proposed$clmm90), as.factor(ys.proposed$didPropose.num))
 ```
 
+Number of Proposals
+```{r}
+clm.mod <- ys.proposed %>% clm(as.factor(numproposals)~as.ordered(PartyStratPos), data=., HESS=TRUE)
+summary(clm.mod)
+
+mean(ys.proposed$numproposals)
+```
+
+Vote Share
+```{r}
+url.file <- "https://raw.githubusercontent.com/emagar/mxDistritos/master/data/dipfed-seccion-vraw-2015.csv"
+Vraw.2015 <- read.csv(url(url.file))
+
+Vraw.2015 <- Vraw.2015 %>%
+  rename(es = pes) %>%
+  mutate(prd = prd + prdc) %>%
+  mutate(pri = pri + pric) %>%
+  select(., -ph, -prdc, -pric)
+
+Vraw.2015 %<>% pivot_longer(., cols = c("pan", "pri", "prd", "pvem", "pt", "mc", "pna", "morena", "es"),
+                            names_to = "actor",
+                            values_to = "votes_2015")
+Vraw.2015 <- Vraw.2015 %>%
+  mutate(actor = toupper(actor)) %>%
+  select(edon, efec, actor, votes_2015) %>%
+  na.omit() %>%
+  group_by(edon, actor) %>%
+  summarize(actor_votes = sum(votes_2015), total_votes = sum(efec))
+
+#Merge w/ ys.proposed by state by party
+
+vote_share_mod.df <- left_join(ys.proposed, Vraw.2015, by=c("edon", "actor"))
+vote_share_mod.df <- vote_share_mod.df %>%
+  filter(year == 2017) %>%
+  rowwise() %>%
+  mutate(vote_share = (actor_votes/total_votes)*100)
+
+vote_share_mod <- glm(didPropose ~ vote_share, data = vote_share_mod.df, binomial)
+summary(vote_share_mod)
+vote_share_mod <- lm(numproposals ~ vote_share, data = vote_share_mod.df)
+summary(vote_share_mod)
+```
 
   #H.1.1.1.a 
 #Comparing the decision of the ruling party to formulate a counterproposal to other parties in that same state --> Requires  a dummy capturing if the state had single party dominance (single_pty_dom_00_17:True) --> In those states where the condition is met --> the ruling party is more likely to formulate a counterporposal than each opposition party in that same state. 
@@ -272,7 +314,7 @@ algo <- algo %>%
          EQ_2 = if_else(Score_3 == Score_5, 1, 0))
 
 algo %>% ggplot(aes(x = Score_1, y = Score_5, color = EQ_1)) +
-  geom_jitter()
+  geom_jitter() + facet_wrap(~year)
 algo %>% ggplot(aes(x = Score_3, y = Score_5, color = EQ_2)) +
   geom_jitter()
 
