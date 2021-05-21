@@ -17,6 +17,7 @@ library(gt)
 library(grid)
 library(egg)
 library(gtable)
+library(patchwork)
 library(webshot)
 options("tidylog.display" = list())  # turn off
 ```
@@ -853,7 +854,101 @@ actor_best.tbl %>%
   
 
 ```
+#Uniform swing analysis
+```{r uniform-swing}
 
+
+
+
+uniform_shift_from<- function(iplans, act_1="PRI",act_2="MORENA",shift_bound=(1/3),slices=50) {
+  
+vote_shifts = seq(0,shift_bound,length=slices)
+  
+ tp <- iplans %>%
+  select(edon,plan_2015_actors_winMargins) %>% 
+  unnest(cols = c(plan_2015_actors_winMargins)) %>%
+  select(edon,district,votes_share,actor) %>%
+  rowwise() %>% 
+  unnest(cols=c(votes_share,actor))
+
+  shift_it <- function(vote_shift) {
+    tp %>%
+      group_by(edon,district) %>% 
+      mutate(
+        shift_size = ifelse( length(which(actor==act_1)>0),votes_share[which(actor==act_1)],0) * vote_shift 
+      ) %>% 
+      rowwise() %>%
+      mutate(vote_share_new = case_when(
+        actor == act_1 ~  votes_share - shift_size,
+        actor == act_2  ~ votes_share + shift_size,
+        TRUE ~ votes_share
+      )) %>% select (-shift_size) %>% 
+      group_by(edon,district) %>% 
+      slice_max(vote_share_new) %>% 
+      ungroup() %>% 
+      select(actor) %>% 
+      count(actor) %>%
+      mutate(shift=vote_shift)
+  }
+  
+  map_dfr(vote_shifts,shift_it)
+
+}
+
+
+swing_alg.tbl <- uniform_shift_from(
+  planFull.df %>%   filter(first_appeared==1, year=="2017") 
+) %>% mutate(scenario="algorithm")
+
+swing_sq.tbl <- uniform_shift_from( 
+  planProcessing.df %>% filter(str_starts(planid,"base")) 
+  ) %>% mutate(scenario="status quo")
+
+swing_win.tbl <- uniform_shift_from( 
+  planFull.df %>% filter(year==2017,win_final==TRUE) 
+  ) %>% mutate(scenario="winner")
+
+swing_all.tbl <- bind_rows(swing_alg.tbl,swing_sq.tbl,swing_win.tbl) %>%
+  mutate(actor=factor(actor))
+                           
+pl1 <- swing_all.tbl %>% 
+  filter(scenario=="status quo") %>%
+  ggplot(aes(x=shift,y=n,group=actor,color=actor)) +
+  geom_line() + 
+  scale_y_continuous(limits=c(0,200))+
+  labs(title="2004 Status Quo Plan Under a Partisan Swing",
+       caption = "(Models uniform swing from 2015 PRI returns to Morena.)", y="Seats", x="Swing")
+                           
+      
+                           
+pl2<- swing_all.tbl %>% 
+  filter(scenario=="algorithm") %>%
+  ggplot(aes(x=shift,y=n,group=actor, color=actor)) +
+  geom_line() + 
+  scale_y_continuous(limits=c(0,200))+
+  labs(title="2017 Algorithmic Plan Under a Partisan Swing",
+          caption = "(Models uniform swing from 2015 PRI returns to Morena.)", y="Seats", x="Swing")
+
+pl3<- swing_all.tbl %>% 
+  filter(scenario=="winner") %>%
+  ggplot(aes(x=shift,y=n,group=actor,color=actor)) +
+  geom_line() + 
+  scale_y_continuous(limits=c(0,200))+
+  labs(title="2017 Winning Plan Under a Partisan Swing",
+       caption = "(Models uniform swing from 2015 PRI returns to Morena.)", y="Seats", x="Swing")
+
+pl4<- swing_all.tbl %>% 
+  filter(actor=="PRI") %>%
+  ggplot(aes(x=shift,y=n,group=scenario,color=scenario)) +
+  geom_line() + 
+  scale_y_continuous(limits=c(0,200))+
+  labs(title="2017 PRI Under a Partisan Swing - Scenario Comparison",
+       caption = "(Models uniform swing from 2015 PRI returns to Morena.)", y="Seats", x="Swing") 
+
+plot(pl1/pl2/pl3/pl4)
+
+
+```
 
 #Diagnostics
 ```{r}
