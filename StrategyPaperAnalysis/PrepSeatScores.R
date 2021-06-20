@@ -289,7 +289,7 @@ planDiff <- function(plan1,plan2) {
       filter(i != matched_i, j != matched_j)
   }
   # if plan 1 has more districts than plan2
-  d_unmatched <- setdiff(unique(plan_dis1.tbl %>% pull("district")),
+  d_unmatched <- setdiff(unique(planDis_1.tbl %>% pull("district")),
                          planMatch.tbl %>% pull("i"))
   
   
