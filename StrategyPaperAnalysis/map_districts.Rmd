@@ -164,13 +164,58 @@ seccion_base.sf %>% filter(entidad==planProcessing.df[[i,"edon"]]) %>%
 ```
 
 ```{r}
-i<-119 ; j <- 1
-plan_1.tbl <- planProcessing.df[[i,"plan"]][[1]]
-plan_2.tbl <- planProcessing.df[[j,"plan"]][[1]]
+plan1 <- planProcessing.df[[119,"plan"]][[1]] 
+plan2 <- planProcessing.df[[1,"plan"]][[1]] 
 
-dis_1.tbl <- plan_1.tbl %>% group_by(district) %>% summarize(seclist=list(seccion))
-dis_2.tbl <- plan_2.tbl %>% group_by(district) %>% summarize(seclist=list(seccion))
+source("distDiff.R")
+planDiff(plan1,plan2)
 
-#example of calculating size differences between two different districts, without assuming numbering is the same
-intersect(dis_1.tbl[1,"seclist"][[1]][[1]],dis_2.tbl[1,"seclist"][[1]][[1]])
+
+
+# compare each plan to baseline
+# compare to algorithm plan
+# compare to prior proposal
 ```
+
+```{r}
+
+### diffBaseline
+###
+### takes a plan,edon from planProcessing.df and returns differences from baseline
+### 2004 plan
+local ({
+baseline.tib <- planProcessing.df %>% filter(str_starts(planid,"base")) %>% select(plan,edon) 
+diffBaseline_<-function(plan,i) {
+  bplan <- baseline.tib %>% filter(edon==i) %>% pull(plan)
+  planDiff(plan,bplan[[1]])
+}
+diffBaseline_}) -> diffBaseline
+
+tmp <- planProcessing.df %>% 
+  rowwise() %>%
+  mutate(base_diffs=list(diffBaseline(plan,edon))) %>%
+  ungroup()
+
+tmp %<>%  rowwise() %>% mutate(
+  plansize=nrow(plan),
+  base_diff_sum=sum(base_diffs$size),
+  base_diff_delta = head(base_diffs$deltadist,n=1),
+  base_diff_percent = base_diff_sum/plansize)
+
+tmp %>% filter(!str_detect(planid,"base")) %>% 
+  group_by(edon) %>% 
+  summarise(mean(base_diff_percent),base_diff_delta=mean(base_diff_delta))
+
+tmp %>% 
+  filter(edon %in% c(2,15)) %>% 
+  rowwise() %>% 
+  mutate(ndists = length(na.omit(unique(plan$district)))) %>% 
+  select(planid,edon,ndists)
+
+#TODO: academic- districts and 13.74065-2-2013	have wrong number of dists
+
+
+
+
+```
+
