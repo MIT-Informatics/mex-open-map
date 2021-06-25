@@ -239,3 +239,96 @@ planProcessing.df  %<>% rowwise() %>% mutate( across(
  planProcessing.df
 }) ## END LOCAL BLOCK
 
+
+###
+### Plan difference analysis
+###
+
+### planDiff 
+###
+### takes two plan tibbles defining block equivalencies
+### returns a tibble of district difference
+
+planDiff <- function(plan1,plan2) {
+  
+  # NOTE: Filtering unassigned blocks 
+  planDis_1.tbl <- plan1 %>% 
+    group_by(district) %>% 
+    summarize(seclist=list(seccion)) %>%
+    filter (!is.na(district))
+  
+  planDis_2.tbl <- plan2 %>%
+    group_by(district) %>% 
+    summarize(seclist=list(seccion)) %>%
+    filter (!is.na(district))
+  
+  
+  distDiff <- function(i,j) {
+    setdiff(planDis_1.tbl[i,"seclist"][[1]][[1]],planDis_2.tbl[j,"seclist"][[1]][[1]])
+  }
+  
+  # compute all differences between districts for potential matches
+  allPlanDiffs.tbl <- expand.grid(i=1:nrow(planDis_1.tbl),j=1:nrow(planDis_2.tbl)) %>% 
+    rowwise() %>%
+    mutate(diff=list(distDiff(i,j)), size=length(diff)) %>% 
+    ungroup() %>%
+    arrange(size)
+  
+  planMatch.tbl <- tibble()
+  # iteratively select best matches from the top, eliminate matched district ids 
+  
+  for (i in 1:(nrow(planDis_1.tbl))) {
+    if (nrow(allPlanDiffs.tbl)==0) {
+      # if plan 1 has more districts than plan2
+      break
+    }
+    planMatch.tbl %<>% bind_rows(allPlanDiffs.tbl[1,])
+    matched_i <- allPlanDiffs.tbl[[1,"i"]]
+    matched_j <- allPlanDiffs.tbl[[1,"j"]]
+    allPlanDiffs.tbl %<>% 
+      filter(i != matched_i, j != matched_j)
+  }
+  # if plan 1 has more districts than plan2
+  d_unmatched <- setdiff(unique(planDis_1.tbl %>% pull("district")),
+                         planMatch.tbl %>% pull("i"))
+  
+  
+  unmatched.tbl <- planDis_1.tbl %>% filter(district %in% d_unmatched) %>%
+    rowwise() %>%
+    mutate(j=NA, size=length(seclist)) %>% 
+    rename(i=district,diff=seclist)
+  
+  planMatch.tbl %<>% bind_rows(unmatched.tbl)
+  planMatch.tbl %<>% 
+    mutate(deltadist = nrow(planDis_1.tbl) - nrow(planDis_2.tbl)) %>%
+    arrange(i)
+  planMatch.tbl
+}
+
+### diffBaseline
+###
+### takes a plan,edon from \ and returns differences from baseline
+### 2004 plan
+local ({
+  baseline.tib <- planProcessing.df %>% filter(str_starts(planid,"base")) %>% select(plan,edon) 
+  diffBaseline_<-function(plan,i) {
+    bplan <- baseline.tib %>% filter(edon==i) %>% pull(plan)
+    planDiff(plan,bplan[[1]])
+  }
+  diffBaseline_}) -> diffBaseline
+
+planProcessing.df %<>% 
+  rowwise() %>%
+  mutate(base_diffs=list(diffBaseline(plan,edon))) %>%
+  ungroup()
+
+planProcessing.df %<>%  rowwise() %>% mutate(
+  plansize=nrow(plan),
+  base_diff_sum=sum(base_diffs$size),
+  base_diff_delta = head(base_diffs$deltadist,n=1),
+  base_diff_percent = base_diff_sum/plansize,
+  ndists = length(na.omit(unique(plan$district)))
+  )
+
+
+#TODO: academic- districts and 13.74065-2-2013	have wrong number of dists

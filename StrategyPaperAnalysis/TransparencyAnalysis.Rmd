@@ -545,6 +545,9 @@ source("PrepSeatScores.R",verbose=FALSE)
 
 ```{r}
 planFull.df <- left_join(planProp.df,planProcessing.df)
+# add reapportionment flag
+reapportionedEdons <- c (7, 9, 11, 14, 15, 20, 21, 22, 23, 25, 28, 30)
+planFull.df %<>% rowwise() %>% mutate(reapportioned = edon %in% reapportionedEdons) %>% ungroup
 ```
 Competitive plan analysis
 ```{r}
@@ -950,6 +953,94 @@ plot(pl1/pl2/pl3/pl4)
 
 
 ```
+#District Change Analysis
+## Total Change vs. 2004 baseline
+```{r change-v-baseline}
+library("ggside")
+
+basediffs.tbl <- planFull.df %>% 
+  filter(VALIDPLAN) %>%
+  group_by(year, edon) %>% 
+  summarise(
+  reapportioned=head(reapportioned,n=1),
+  baseline_change = mean(base_diff_percent,na.rm=TRUE),
+  tla=head(tla,n=1)
+  )
+
+basediffs.tbl %>% 
+  ggplot(aes(x=edon,y=baseline_change, color=reapportioned)) +
+  geom_point() + 
+  geom_segment( aes(x=edon, xend=edon, y=0, yend=baseline_change)) + 
+   geom_ysidedensity(aes(x=stat(density))) +
+  facet_wrap(vars(year)) +
+  labs(title="Change in Seccion Assignment: Proposals vs. 2004 Baseline",
+       caption = "(Mean  proposed plans in edon & year.)", y="Proportion Changed", x="Edon", color="apportionment change")
+  
+
+```
+## Total Change vs. Algorithmic  proposal
+
+```{r change-v-algorithm-proposal}
+
+  
+local({
+  algplan.tbl <- planFull.df %>% filter(first_appeared==1)  %>% select(planid,plan,year,edon)
+
+diffAlg_<-function(plan,i,j) {
+  aplan <- algplan.tbl %>% filter(edon==i, year==j)  %>% pull(plan)
+  planDiff(plan,aplan[[1]])
+}
+  diffAlg_}) -> diffAlg
+
+validPlans.tbl <- planFull.df %>% 
+  rowwise() %>%
+  filter(VALIDPLAN) %>% 
+  filter(first_appeared>1) %>%
+  filter(!is.null(plan)) %>%
+  ungroup()
+
+validPlans.tbl %<>% 
+  rowwise() %>%
+  mutate(alg_diffs=list(diffAlg(plan,edon,year))) %>%
+  mutate(
+  alg_diff_sum=sum(alg_diffs$size),
+  alg_diff_delta = head(alg_diffs$deltadist,n=1),
+  alg_diff_percent = alg_diff_sum/plansize,
+  ) %>%
+  ungroup()
+
+planFull.df %>% 
+  filter(first_appeared==1) %>%
+  ggplot(aes(x=edon,y=base_diff_percent,color=reapportioned)) +
+  geom_point() + 
+  geom_segment( aes(x=edon, xend=edon, y=0, yend=base_diff_percent))  +
+  geom_ysidedensity(aes(x=stat(density))) +
+  facet_wrap(vars(year))  +
+  labs(title="Change in Seccion Assignment: Algorithmic Plan vs. 2004 Baseline",  caption = "", y="Proportion Changed", x="Edon", color="apportionment change")
+
+validPlans.tbl %>% filter(win_final) %>% 
+  ggplot(aes(x=edon,y=alg_diff_percent,color=creator_label)) +
+  geom_point() + 
+  geom_segment( aes(x=edon, xend=edon, y=0, yend=alg_diff_percent)) + 
+  facet_wrap(vars(year)) + 
+     geom_ysidedensity(aes(x=stat(density),color="(Total)")) +
+ labs(title="Change in Seccion Assignment: Winning Plan vs. Algorithmic proposal",
+       caption = "", y="Proportion Changed", x="Edon", color="creator")
+
+library("ggh4x")
+
+
+validPlans.tbl %>% 
+  ggplot(aes(x=edon,y=alg_diff_percent, color=as.factor(creator_label))) +
+  geom_point() + 
+  facet_nested(rows=(vars(year)) , cols=(vars(first_appeared)) ) +
+   labs(title="Change in Seccion Assignment: All proposals vs. Algorithmic proposal",
+       caption = "(Changes grouped by year and proposal stage)", y="Proportion Changed", x="Edon", color="creator")
+
+
+```
+
+## Counterproposal properties
 
 #Diagnostics
 ```{r}
