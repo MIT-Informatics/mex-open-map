@@ -193,7 +193,7 @@ confusionMatrix(as.factor(ys.proposed$clm90), as.factor(ys.proposed$didPropose.n
 #example of ordinal model only, seems to have numerical problems
 #strategic position matters. Also independent
 
-model.results <- ys.proposed %>% clmm(as.ordered(didPropose)~as.ordered(StratPos)+(1|actor),., Hess = TRUE)
+model.results <- ys.proposed %>% filter(year == 2017)%>% clmm(as.ordered(didPropose)~as.ordered(StratPos)+(1|actor),., Hess = TRUE)
 summary(model.results)
 confint(model.results)
 
