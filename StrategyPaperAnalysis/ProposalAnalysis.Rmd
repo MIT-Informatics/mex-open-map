@@ -146,7 +146,16 @@ table(as.factor(ys.proposed$actor))
 xtab.result <- ys.proposed %>% filter(actortype=="minor" || actortype=="major") %>% xtabs(~actortype+year+didPropose+StratPos,.,drop.unused.levels = TRUE)
 ftable(xtab.result)
 
+stratpos.tbl <- ys.proposed %>% group_by(actor, StratPos) %>% summarise("% Proposed"= round(sum(didPropose)/n()*100, digits = 1))
+stratpos.tbl <- stratpos.tbl %>% as_tibble() %>% arrange(StratPos) %>% pivot_wider(., id_cols = actor, names_from = StratPos, values_from = `% Proposed`)
+stratpos.tbl$`1`[is.na(stratpos.tbl$`1`)] <- "-"
+stratpos.tbl$`2`[is.na(stratpos.tbl$`2`)] <- "-"
+stratpos.tbl$`3`[is.na(stratpos.tbl$`3`)] <- "-"
+stratpos.tbl$`4`[is.na(stratpos.tbl$`4`)] <- "-"
+stratpos.tbl$`5`[is.na(stratpos.tbl$`5`)] <- "-"
+stratpos.tbl$`6`[is.na(stratpos.tbl$`6`)] <- "-"
 
+stratpos.tbl %>% gt()
 ```
 
 
