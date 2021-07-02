@@ -640,8 +640,8 @@ comp.tbl %<>% bind_rows(
   )
 )
 
-comp.tbl %>% group_by(year,creator_coded) %>% filter(creator_coded == "PAN" | creator_coded == "PRI" | creator_coded == "PRD" | creator_coded == "PVEM" | creator_coded == "Coalition") %>% filter(year == 2013) %>% gt()
-comp.tbl %>% group_by(year,creator_coded) %>% filter(creator_coded == "PAN" | creator_coded == "PRI" | creator_coded == "PRD" | creator_coded == "PVEM" | creator_coded == "Coalition") %>% filter(year == 2017) %>% gt()
+comp.tbl %>% group_by(year,creator_coded) %>% filter(creator_coded != "ALGORITHM") %>% filter(year == 2013) %>% gt()
+comp.tbl %>% group_by(year,creator_coded) %>% filter(creator_coded != "ALGORITHM") %>% filter(year == 2017) %>% gt()
 
 ```
 
