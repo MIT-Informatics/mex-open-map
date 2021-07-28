@@ -331,4 +331,26 @@ planProcessing.df %<>%  rowwise() %>% mutate(
   )
 
 
-#TODO: academic- districts and 13.74065-2-2013	have wrong number of dists
+### Compute hashes
+planHash <- function(x) {
+  x %>% 
+    group_by(district) %>% 
+    summarize(g=list(sort(seccion)),h=head(unlist(g),n=1)) %>%
+    ungroup() %>%
+    arrange(h) %>%
+    select(g) %>% 
+    rlang::hash()
+}
+
+
+planProcessing.df %<>%  rowwise() %>% mutate(
+  planhash=planHash(plan)
+)
+
+tmp <- planProcessing.df %>% group_by(planhash) %>% mutate(hashcount=n())
+
+f#TODO: 
+# - academic- districts and 13.74065-2-2013	have wrong number of dists
+# - ghost districts
+# - missing seccions in maps
+# - plan hash matches on different plans

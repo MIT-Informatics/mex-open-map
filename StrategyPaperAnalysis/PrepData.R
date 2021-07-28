@@ -21,6 +21,7 @@ actors.df <- structure(list(actor = structure(c(2L, 7L, 9L, 10L, 11L, 13L,
                                                                                                                                                            -15L))                                                                                                                                                     
 
 ## Proposal events database: proposal.df
+#setwd("StrategyPaperAnalysis")
 source("Normalize.R") # reads in Pre-Normalized IFE tables 
 ## Ruling party by year and state: grule.df , controlByWindow() helper function
 source("RulingParty.R") # Bring in ruling party db

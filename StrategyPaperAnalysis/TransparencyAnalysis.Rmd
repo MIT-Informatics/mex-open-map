@@ -156,12 +156,12 @@ gt_theme_538 <- function(data,...) {
 *  All scored entries are in 2013
 * Unspecificed actors - Junta, CLV, PRD51
 * Plans are scored, but not included for ghostprop
-* Also 2017 Jalisco plan by derfe/INE submitted but not officially scored
+* Also 2017 Jalisco plan by derfe/INE in archive of plans but not officially scored
 ```{r}
 thirdparty.tab <- proptrans.df %>% group_by(year,actor2) %>% summarise (
   outside=sum(PROPOSED & actortype2 %in% c("admin","other") & stage %in% c(2,4),na.rm=TRUE),
   missing=sum(!is.na(PROPOSED) & PROPOSED & !hasplan),
-  unscored=sum(is.na(PROPOSED)& hasplan),
+  unscored=sum(!is.na(PROPOSED) & !PROPOSED & hasplan ),
   grandtotal=outside+missing+unscored,
 ) 
 thirdparty.tab %>% 
@@ -971,10 +971,10 @@ basediffs.tbl %>%
   ggplot(aes(x=edon,y=baseline_change, color=reapportioned)) +
   geom_point() + 
   geom_segment( aes(x=edon, xend=edon, y=0, yend=baseline_change)) + 
-   geom_ysidedensity(aes(x=stat(density))) +
+   geom_ysidehistogram(aes(x=stat(density),fill=reapportioned),alpha=.2) +
   facet_wrap(vars(year)) +
   labs(title="Change in Seccion Assignment: Proposals vs. 2004 Baseline",
-       caption = "(Mean  proposed plans in edon & year.)", y="Proportion Changed", x="Edon", color="apportionment change")
+       caption = "(Mean  proposed plans in edon & year.)", y="Proportion Changed", x="Edon", color="apportionment change", fill="apportionment change")
   
 
 ```
@@ -1019,13 +1019,13 @@ planFull.df %>%
   labs(title="Change in Seccion Assignment: Algorithmic Plan vs. 2004 Baseline",  caption = "", y="Proportion Changed", x="Edon", color="apportionment change")
 
 validPlans.tbl %>% filter(win_final) %>% 
-  ggplot(aes(x=edon,y=alg_diff_percent,color=creator_label)) +
+  ggplot(aes(x=edon,y=alg_diff_percent,color=creator_label,fill=creator_label)) +
   geom_point() + 
   geom_segment( aes(x=edon, xend=edon, y=0, yend=alg_diff_percent)) + 
   facet_wrap(vars(year)) + 
-     geom_ysidedensity(aes(x=stat(density),color="(Total)")) +
+     geom_ysidehistogram(aes(x=stat(density), fill="(Total)", color="(Total)")) +
  labs(title="Change in Seccion Assignment: Winning Plan vs. Algorithmic proposal",
-       caption = "", y="Proportion Changed", x="Edon", color="creator")
+       caption = "", y="Proportion Changed", x="Edon", color="creator",fill="creator")
 
 library("ggh4x")
 
@@ -1041,6 +1041,12 @@ validPlans.tbl %>%
 ```
 
 ## Counterproposal properties
+```{r}
+# valid major party proposals
+majProp.tib <- proptrans.df %>% filter(VALIDPLAN==TRUE, actortype=="major") %>% select(-plan)
+majProp.tib 
+```
+
 
 #Diagnostics
 ```{r}
@@ -1050,3 +1056,14 @@ nullplans<- left_join(nullids,propfull.df)
 nullplans %>% gt()
 
 ```
+
+
+# Debug
+
+```{r}
+ghost.tbl  <- proptrans.df %>% filter(!is.na(PROPOSED) & !PROPOSED & hasplan )
+View(ghost.tbl)
+
+# check seccion count
+```
+
