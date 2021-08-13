@@ -11,23 +11,16 @@
 # Depends on: PrepData.R  -- This must be run first
 # Returns: planscores.df
 
-
-# use a local blocks to keep environment neat, only the objects defined outside will remain after run
-## BEGIN LOCAL BLOCK
-planProcessing.df <- local({ 
-  planProcessing.df<-NULL
-## 
-## Data cleaning functions 
-##
 ## Supports cleaning, merging w/ raw-seccion-* files
+# Make function public because we'll use it in the municipality analysis
 
 clean_vraw<-function(x){
-
+  
   # create missing coalition columns ,
   for (cmiss in setdiff(c("morenac","pric","panc","prdc"), x %>% names())) {
     x %<>% mutate({{ cmiss }} := 0)
   }
-
+  
   # strip subtotals
   x %<>% filter(!is.na(disn))
   
@@ -44,8 +37,17 @@ clean_vraw<-function(x){
       values_to = "votes"
     ) %>% #Data is in wide format, converts the data to long format
     mutate(actor = toupper(actor)) %>%  #Converts the actor names to uppercase to match with actor names in subsequent dataframes
-    select(edon, seccion, actor, votes, efec, lisnom)
+    select(edon, seccion, actor, votes, efec, lisnom, inegi,disn) %>%
+    rename(disn_adopt = disn)  
 }
+
+# use a local blocks to keep environment neat, only the objects defined outside will remain after run
+## BEGIN LOCAL BLOCK
+planProcessing.df <- local({ 
+  planProcessing.df<-NULL
+## 
+## Data cleaning functions 
+##
 
 # function to check and merge plans
 standardizePlan <- function(plan,edon,votedf) {
@@ -83,6 +85,8 @@ fed2004.tb %<>%
 planProcessing.df %<>% bind_rows(fed2004.tb)
 
 pri_paths <- dir("mxDistritos-data/academic/",pattern="\\.csv$",full.names=TRUE)
+
+# Load Magar Gerrymanders
 pri_gerry.ls <-map(pri_paths,  read_csv, col_names=c("seccion_char","district","seats"), col_types=cols_only(seccion_char="c",district="i"))
 pri_gerry.tbl <- tibble(plan=pri_gerry.ls,
                         planid=paste(sep="-","academic","pri",
@@ -205,6 +209,22 @@ scoreComp <- function(x,threshold=.02){
     pull(score)
 }
 
+scoreMuniSplits <-function(x) {
+  if (is.null(x)) {return(NA)}
+  if (length(x)==1)  {x <- pull(x)}
+  
+  counts<- x %>% 
+    group_by(district,inegi) %>%
+    filter(!is.na(inegi)) %>%
+    slice_head(n=1) %>% 
+    ungroup() %>% 
+    select(district,inegi) %>% 
+    count(inegi) %>%
+    pull(n)
+  
+  sum(counts-1)
+}
+
 scoreWins <- function(x){
   if(is.null(x)) { return (NULL)}
   
@@ -214,6 +234,14 @@ scoreWins <- function(x){
 
 vars.districts <- vars.srclist %>% paste("_districts",sep="")
 vars.actors <- vars.srclist %>% paste("_actors",sep="")
+
+
+planProcessing.df  %<>% rowwise() %>% mutate( across( 
+  c({{ vars.srclist }}), 
+  list(
+    muniSplits = ~scoreMuniSplits(.x)
+  ))) 
+
 
 planProcessing.df  %<>% rowwise() %>% mutate( across( 
   c({{ vars.districts }}), 
@@ -333,6 +361,10 @@ planProcessing.df %<>%  rowwise() %>% mutate(
 
 ### Compute hashes
 planHash <- function(x) {
+  if (is.null(x)) return("")
+  if(length(x)==1) {
+    x==x[[1]]
+  }
   x %>% 
     group_by(district) %>% 
     summarize(g=list(sort(seccion)),h=head(unlist(g),n=1)) %>%
@@ -347,10 +379,21 @@ planProcessing.df %<>%  rowwise() %>% mutate(
   planhash=planHash(plan)
 )
 
-tmp <- planProcessing.df %>% group_by(planhash) %>% mutate(hashcount=n())
+rm(el,vars.srclist)
+# DEBUG
+ propfull_plus.df <- propfull.df %>% rowwise() %>% mutate(planhash=planHash(plan))
+ propfull_plus.df %<>% group_by(planhash) %>% mutate(hashcount=n()) %>% ungroup %>% arrange(desc(hashcount))
+tmp<- propfull_plus.df %>% filter(planhash!="",) %>% arrange(hashcount,planhash,planid) %>% select(planhash,hashcount,SCORE,planid,Entidad,year,stage,govlevel,actor)
+tmp %<>% group_by(planhash) %>% mutate(allsame=length(unique(SCORE))==1) %>% filter(!is.na(planid)) %>% filter(allsame==FALSE) %>% group_by(planhash) %>% mutate(nhashcount=n()) %>% filter(nhashcount>1)
 
-f#TODO: 
+#Done:
+# Ghostplans -- INE system provides plan even if it was not submitted. Plan delivered is often the
+#    prior winning plan -- which is presumably the default for counterproposals.
+
+#TODO: 
 # - academic- districts and 13.74065-2-2013	have wrong number of dists
-# - ghost districts
 # - missing seccions in maps
 # - plan hash matches on different plans
+# revealed prefs
+# DONE: municipality splits
+# municipality homongeneity

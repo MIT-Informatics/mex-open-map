@@ -1029,7 +1029,6 @@ basediffs.tbl %>%
 
 ```
 ## Total Change vs. Algorithmic  proposal
-
 ```{r change-v-algorithm-proposal}
 
   
@@ -1086,10 +1085,80 @@ validPlans.tbl %>%
   facet_nested(rows=(vars(year)) , cols=(vars(first_appeared)) ) +
    labs(title="Change in Seccion Assignment: All proposals vs. Algorithmic proposal",
        caption = "(Changes grouped by year and proposal stage)", y="Proportion Changed", x="Edon", color="creator")
-
-
 ```
+## Municipality Analysis
+```{r municipality-demographic}
 
+votes.2015.df <- read_csv("mxDistritos-data/raw-seccion-2015.csv", 
+                          col_types=cols( .default = col_double()))
+votes.2018.df <- read_csv("mxDistritos-data/raw-seccion-2018.csv",
+                          col_types=cols( .default = col_double()))
+votes.2018.df %<>%  clean_vraw()
+votes.2015.df %<>%  clean_vraw()
+
+# municipality grouped data
+munis_actors_2015.tbl <- votes.2015.df %>% 
+  mutate(edon=factor(edon,labels = statecodes.df %>% pull(tla))) %>%
+  group_by(edon,inegi,actor) %>% 
+  summarize(sumvotes=sum(votes,na.rm=TRUE)) %>%
+  select(edon,inegi,actor,sumvotes) %>%
+  group_by(edon,inegi) %>%
+  mutate(propvotes=sumvotes/sum(sumvotes,na.rm=TRUE)) %>% 
+  ungroup() 
+
+# compare municipality party votes to district winning vote thresholds
+
+munis_actors_2015.tbl %>% 
+  group_by(edon,inegi) %>%      
+  summarize(maxvotes=max(sumvotes,na.rm=TRUE)) %>%
+  ungroup() %>%
+  ggplot(aes(x=edon,y=maxvotes,color="Municipal Party Vote")) +
+  geom_boxplot() -> p1
+
+winvotes.df <- votes.2015.df %>% 
+  mutate(edon=factor(edon,labels = statecodes.df %>% pull(tla))) %>%
+  group_by(edon,disn_adopt,actor) %>% 
+  summarize(actor_vote=sum(votes,na.rm=FALSE)) %>%
+  group_by(edon,disn_adopt) %>%
+  summarize(distmaxvote=max(actor_vote),distwinvote=sort(actor_vote,decreasing=TRUE)[2])
+
+geom_boxplot(
+  data = winvotes.df, 
+  aes(x=edon,y=distwinvote,color="Winning Vote Threshold") ) -> p1.1
+
+plot(p1 + p1.1 + coord_flip())
+
+
+votes.2015.df %>% 
+  group_by(edon,actor) %>% 
+  summarize(sumvotes=sum(votes,na.rm=TRUE)) %>%
+  mutate(propvotes=sumvotes/sum(sumvotes,na.rm=TRUE)) %>% 
+  group_by(edon) %>%
+  mutate(concentration=max(propvotes)) %>%
+  ungroup() %>%
+  ggplot(aes(x=concentration)) +
+  geom_density(bw=.01,outline.type="both",aes(fill="edon"),alpha=.1) +
+  geom_density(data=
+    votes.2015.df %>%
+    group_by(edon,seccion) %>%
+    mutate(concentration=max(votes)/sum(votes,na.rm=TRUE)) %>%
+    ungroup(),
+    bw=.01,outline.type="both",mapping=aes(fill="seccion"),alpha=.1)  +
+  geom_density(data=
+    votes.2015.df %>% 
+group_by(edon,actor,inegi) %>% 
+  summarize(sumvotes=sum(votes,na.rm=TRUE)) %>%
+  group_by(inegi) %>%
+  mutate(concentration=max(sumvotes)/sum(sumvotes)),
+    bw=.01,outline.type="both",mapping=aes(fill="municipality"),alpha=.1) + 
+  theme(axis.text.y=element_blank())-> p2
+
+p2
+plot (p2+p2+facet_wrap(vars(edon),4))
+
+
+planProcessing.df  %>% rowwise() %>% mutate(meanwin=mean(plan_2015_actors_winMargins$win_margin,na.rm=TRUE))%>% ggplot(aes(x=plan_2015_muniSplits,y=meanwin),alpha=.01) + geom_jitter() 
+```
 ## Counterproposal properties
 ```{r}
 # valid major party proposals
