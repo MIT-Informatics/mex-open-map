@@ -21,6 +21,7 @@ options(timeout=1200)
 ```{r}
 library("sf")
 seccion_base.sf <- read_sf("C:/Users/Brandon/Documents/Strategy_Paper_SHP/2017_07_test/07/SECCION.shp", check_ring_dir=TRUE)
+seccion_base.sf2 <- read_sf("C:/Users/Brandon/Documents/Strategy_Paper_SHP/2017_11_test/11/DISTRITO.shp", check_ring_dir=TRUE)
 ```
 
 ```{r}
@@ -277,26 +278,125 @@ intersect(dis_1.tbl[1,"seclist"][[1]][[1]],dis_2.tbl[1,"seclist"][[1]][[1]])
 ```
 
 
-#15
 ```{r}
-i<-314
+tempPlan <- planProcessing.df %>% filter(edon == 7 | edon == 11)
+```
+
+#11
+Algorithm v Winning Plan (2013)
+```{r}
+i<-10
  
 
-seccion_base.sf %>% filter(entidad==planProcessing.df[[i,"edon"]]) %>% 
-  left_join(planProcessing.df[[i,"plan"]][[1]],by=c("seccion")) %>% mutate(district=factor(district)) %>%
+seccion_base.sf2 %>% filter(entidad==tempPlan[[i,"edon"]]) %>% mutate(district = distrito) %>%
+  left_join(tempPlan[[i,"plan"]][[1]],by=c("district")) %>% mutate(district=factor(district)) %>%
+  ggplot() + aes(fill=district) + geom_sf()
+i<-26
+ 
+
+seccion_base.sf2 %>% filter(entidad==tempPlan[[i,"edon"]]) %>% 
+  left_join(tempPlan[[i,"plan"]][[1]],by=c("district")) %>% mutate(district=factor(district)) %>%
   ggplot() + aes(fill=district) + geom_sf()
 
 ```
 ```{r}
-j<-149  # this has the same edon -- otherwise it ain't comparable :-)
+j<-26  # this has the same edon -- otherwise it ain't comparable :-)
 
 # assumes plans have same district numbering order -- TODO: reorder district numbers for best match before differencing
-dcomp<- full_join(planProcessing.df[[i,"plan"]][[1]],planProcessing.df[[j,"plan"]][[1]],by=c("seccion")) %>% mutate(district.diff=district.x==district.y)
+dcomp<- full_join(tempPlan[[i,"plan"]][[1]],tempPlan[[j,"plan"]][[1]],by=c("seccion")) %>% mutate(district.diff=district.x==district.y)
 
-seccion_base.sf %>% filter(entidad==planProcessing.df[[i,"edon"]]) %>% 
+seccion_base.sf2 %>% filter(entidad==tempPlan[[i,"edon"]]) %>% 
   left_join(dcomp,by=c("seccion"))  %>%
   ggplot() + aes(fill=district.diff) + geom_sf()
-i<-314 ; j <- 149
+i<-10 ; j <- 26
+plan_1.tbl <- planFull.df[[i,"plan"]][[1]]
+plan_2.tbl <- planFull.df[[j,"plan"]][[1]]
+
+dis_1.tbl <- plan_1.tbl %>% group_by(district) %>% summarize(seclist=list(seccion))
+dis_2.tbl <- plan_2.tbl %>% group_by(district) %>% summarize(seclist=list(seccion))
+
+#example of calculating size differences between two different districts, without assuming numbering is the same
+intersect(dis_1.tbl[1,"seclist"][[1]][[1]],dis_2.tbl[1,"seclist"][[1]][[1]])
+```
+Algorithm v Winning Plan (2017)
+```{r}
+i<-24
+ 
+
+seccion_base.sf2 %>% filter(entidad==tempPlan[[i,"edon"]]) %>% 
+  left_join(tempPlan[[i,"plan"]][[1]],by=c("seccion")) %>% mutate(district=factor(district)) %>%
+  ggplot() + aes(fill=district) + geom_sf()
+
+```
+```{r}
+j<-26  # this has the same edon -- otherwise it ain't comparable :-)
+
+# assumes plans have same district numbering order -- TODO: reorder district numbers for best match before differencing
+dcomp<- full_join(tempPlan[[i,"plan"]][[1]],tempPlan[[j,"plan"]][[1]],by=c("seccion")) %>% mutate(district.diff=district.x==district.y)
+
+seccion_base.sf2 %>% filter(entidad==tempPlan[[i,"edon"]]) %>% 
+  left_join(dcomp,by=c("seccion"))  %>%
+  ggplot() + aes(fill=district.diff) + geom_sf()
+i<-24 ; j <- 26
+plan_1.tbl <- planFull.df[[i,"plan"]][[1]]
+plan_2.tbl <- planFull.df[[j,"plan"]][[1]]
+
+dis_1.tbl <- plan_1.tbl %>% group_by(district) %>% summarize(seclist=list(seccion))
+dis_2.tbl <- plan_2.tbl %>% group_by(district) %>% summarize(seclist=list(seccion))
+
+#example of calculating size differences between two different districts, without assuming numbering is the same
+intersect(dis_1.tbl[1,"seclist"][[1]][[1]],dis_2.tbl[1,"seclist"][[1]][[1]])
+```
+Base (2004) v Alg (2017)
+```{r}
+i<-28
+ 
+
+seccion_base.sf2 %>% filter(entidad==tempPlan[[i,"edon"]]) %>% 
+  left_join(tempPlan[[i,"plan"]][[1]],by=c("seccion")) %>% mutate(district=factor(district)) %>%
+  ggplot() + aes(fill=district) + geom_sf()
+
+```
+```{r}
+j<-24  # this has the same edon -- otherwise it ain't comparable :-)
+
+# assumes plans have same district numbering order -- TODO: reorder district numbers for best match before differencing
+dcomp<- full_join(tempPlan[[i,"plan"]][[1]],tempPlan[[j,"plan"]][[1]],by=c("seccion")) %>% mutate(district.diff=district.x==district.y)
+
+seccion_base.sf2 %>% filter(entidad==tempPlan[[i,"edon"]]) %>% 
+  left_join(dcomp,by=c("seccion"))  %>%
+  ggplot() + aes(fill=district.diff) + geom_sf()
+i<-28 ; j <- 24
+plan_1.tbl <- planFull.df[[i,"plan"]][[1]]
+plan_2.tbl <- planFull.df[[j,"plan"]][[1]]
+
+dis_1.tbl <- plan_1.tbl %>% group_by(district) %>% summarize(seclist=list(seccion))
+dis_2.tbl <- plan_2.tbl %>% group_by(district) %>% summarize(seclist=list(seccion))
+
+#example of calculating size differences between two different districts, without assuming numbering is the same
+intersect(dis_1.tbl[1,"seclist"][[1]][[1]],dis_2.tbl[1,"seclist"][[1]][[1]])
+```
+
+Base (2004) v Winning (2017)
+```{r}
+i<-28
+ 
+
+seccion_base.sf2 %>% filter(entidad==tempPlan[[i,"edon"]]) %>% 
+  left_join(tempPlan[[i,"plan"]][[1]],by=c("seccion")) %>% mutate(district=factor(district)) %>%
+  ggplot() + aes(fill=district) + geom_sf()
+
+```
+```{r}
+j<-26  # this has the same edon -- otherwise it ain't comparable :-)
+
+# assumes plans have same district numbering order -- TODO: reorder district numbers for best match before differencing
+dcomp<- full_join(tempPlan[[i,"plan"]][[1]],tempPlan[[j,"plan"]][[1]],by=c("seccion")) %>% mutate(district.diff=district.x==district.y)
+
+seccion_base.sf2 %>% filter(entidad==tempPlan[[i,"edon"]]) %>% 
+  left_join(dcomp,by=c("seccion"))  %>%
+  ggplot() + aes(fill=district.diff) + geom_sf()
+i<-28 ; j <- 24
 plan_1.tbl <- planFull.df[[i,"plan"]][[1]]
 plan_2.tbl <- planFull.df[[j,"plan"]][[1]]
 
