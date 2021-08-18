@@ -41,6 +41,41 @@ clean_vraw<-function(x){
     rename(disn_adopt = disn)  
 }
 
+scoreMuniDominate <-function(x) {
+  if (is.null(x)) {return(NA)}
+  if (length(x)==1)  {x <- pull(x)}
+  x %<>% rowwise() %>% filter(!is.na(actor)) %>% ungroup()
+  
+  splitinegi <- x %>% 
+    group_by(edon,district,inegi) %>%
+    filter(!is.na(inegi)) %>%
+    slice_head(n=1) %>% 
+    ungroup() %>% 
+    select(edon,district,inegi) %>% 
+    count(edon,inegi) %>%
+    filter(n>1) %>%
+    select(-n)
+  
+  distotals <- x %>%
+    group_by(edon,district) %>%
+    summarize(totalvote=sum(votes,na.rm=TRUE)) %>%
+    ungroup()
+  
+  munidominate <- x %>%
+    anti_join(splitinegi) %>%
+    group_by(edon,district,inegi,actor) %>%
+    summarize(totalactor=sum(votes,na.rm=TRUE)) %>%
+    group_by(edon,district,inegi) %>%
+    summarize(maxtotalactor=max(totalactor,na.rm=TRUE)) %>%
+    group_by(edon,district) %>%
+    summarize(maxinfluence=max(maxtotalactor,na.rm=TRUE)) %>%
+    ungroup()
+  
+  munidominate %<>% right_join(distotals) %>% mutate(prop_influence=maxinfluence/totalvote, prop_influence=replace_na(prop_influence,0) )
+  munidominate
+  
+}
+
 # use a local blocks to keep environment neat, only the objects defined outside will remain after run
 ## BEGIN LOCAL BLOCK
 planProcessing.df <- local({ 
@@ -255,13 +290,19 @@ planProcessing.df  %<>% rowwise() %>% mutate( across(
     winMargins = ~list(scoreSeats(.x))
   ))) 
 
-vars.winmargins <- vars.srclist %>% paste("_actors_winMargins",sep="")
-
+vars.winmargins <- (vars.srclist %>% paste("_actors_winMargins",sep=""))
 planProcessing.df  %<>% rowwise() %>% mutate( across( 
   c({{ vars.winmargins }}), 
   list(
     compCount = ~scoreComp(.x),
     actorWins = ~list(scoreWins(.x))
+   # muniDominate = ~list(scoreMuniDominate(.x))
+  ))) 
+
+  planProcessing.df  %<>% rowwise() %>% mutate( across( 
+  c({{ vars.srclist }}),
+  list(
+    muniDominate = ~list(scoreMuniDominate(.x))
   ))) 
 
  planProcessing.df
@@ -393,7 +434,7 @@ tmp %<>% group_by(planhash) %>% mutate(allsame=length(unique(SCORE))==1) %>% fil
 #TODO: 
 # - academic- districts and 13.74065-2-2013	have wrong number of dists
 # - missing seccions in maps
-# - plan hash matches on different plans
+# - plan hash matches on different plans- missing replace
 # revealed prefs
 # DONE: municipality splits
-# municipality homongeneity
+# DONE: municipality homongeneity

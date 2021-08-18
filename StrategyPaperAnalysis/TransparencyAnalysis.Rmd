@@ -128,7 +128,7 @@ gt_theme_538 <- function(data,...) {
         sides = "bottom", color = "transparent", weight = px(2)
       ),
       locations = cells_body(
-        columns = TRUE,
+        columns = everything(),
         # This is a relatively sneaky way of changing the bottom border
         # Regardless of data size
         rows = nrow(data$`_data`)
@@ -148,7 +148,7 @@ gt_theme_538 <- function(data,...) {
     source_notes.font.size = 12,
     table.font.size = 16,
     heading.align = "left",
-    ...
+    c(...)
   ) 
 }
 ```
@@ -1041,14 +1041,14 @@ diffAlg_<-function(plan,i,j) {
 }
   diffAlg_}) -> diffAlg
 
-validPlans.tbl <- planFull.df %>% 
+nonalgPlans.tbl <- planFull.df %>% 
   rowwise() %>%
   filter(VALIDPLAN) %>% 
   filter(first_appeared>1) %>%
   filter(!is.null(plan)) %>%
   ungroup()
 
-validPlans.tbl %<>% 
+nonalgPlans.tbl %<>% 
   rowwise() %>%
   mutate(alg_diffs=list(diffAlg(plan,edon,year))) %>%
   mutate(
@@ -1063,11 +1063,11 @@ planFull.df %>%
   ggplot(aes(x=edon,y=base_diff_percent,color=reapportioned)) +
   geom_point() + 
   geom_segment( aes(x=edon, xend=edon, y=0, yend=base_diff_percent))  +
-  geom_ysidedensity(aes(x=stat(density))) +
+ geom_ysidehistogram(aes(x=stat(density), fill="(Total)", color="(Total)"))+
   facet_wrap(vars(year))  +
   labs(title="Change in Seccion Assignment: Algorithmic Plan vs. 2004 Baseline",  caption = "", y="Proportion Changed", x="Edon", color="apportionment change")
 
-validPlans.tbl %>% filter(win_final) %>% 
+nonalgPlans.tbl %>% filter(win_final) %>% 
   ggplot(aes(x=edon,y=alg_diff_percent,color=creator_label,fill=creator_label)) +
   geom_point() + 
   geom_segment( aes(x=edon, xend=edon, y=0, yend=alg_diff_percent)) + 
@@ -1079,12 +1079,97 @@ validPlans.tbl %>% filter(win_final) %>%
 library("ggh4x")
 
 
-validPlans.tbl %>% 
+nonalgPlans.tbl %>% 
   ggplot(aes(x=edon,y=alg_diff_percent, color=as.factor(creator_label))) +
   geom_point() + 
   facet_nested(rows=(vars(year)) , cols=(vars(first_appeared)) ) +
    labs(title="Change in Seccion Assignment: All proposals vs. Algorithmic proposal",
        caption = "(Changes grouped by year and proposal stage)", y="Proportion Changed", x="Edon", color="creator")
+```
+## Pareto Curve  
+```{r pareto-analysis}
+# valid major party proposals]
+validPlans.tbl <- planFull.df %>% 
+  rowwise() %>%
+  filter(VALIDPLAN) %>% 
+  filter(!is.null(plan))  %>%
+  ungroup()
+
+validPlans.tbl  %<>%
+  rowwise() %>% 
+  mutate(mean_win_2015=mean(plan_2015_actors_winMargins$win_margin)) %>%
+  ungroup()
+
+validScores.tbl <- validPlans.tbl %>%
+  select("planid","rscore","tla",
+         "mean_win_2015","plan_2015_muniSplits","plan_2015_actors_winMargins_compCount",
+         "plan_2015_districts_maxPopDev") %>% 
+  rename(official_score=rscore, municiple_splits = plan_2015_muniSplits,
+         competitive_districts = plan_2015_actors_winMargins_compCount,
+         worst_population_deviation = plan_2015_districts_maxPopDev,
+         average_winning_margins = mean_win_2015
+         )
+
+validScores.tbl %>% 
+  GGally::ggpairs( columns=c("official_score","municiple_splits", "competitive_districts", "worst_population_deviation", "average_winning_margins"))
+
+```
+## revealed preference properties
+```{r revealed-analysis}
+# valid major party proposals]
+
+propmatch.df <- proptrans.df %>% 
+  rowwise() %>%
+  filter(!is.null(plan),PROPOSED==TRUE, stage %in% c(2,4), VALIDPLAN==TRUE) %>%
+  select(planid,year,edon,stage,actor,actortype,tla) %>%
+  mutate(previous_stage = stage-1) %>% 
+  ungroup() %>%
+  left_join(by=c("year","edon","previous_stage"),
+            proptrans.df %>% select(year,edon,stage,planid) %>% 
+              rename(previous_id=planid, previous_stage=stage)) %>%
+  select(-previous_stage)
+
+counterScore <- function(p1,p2) {
+  rows.tib <- left_join(by="planid",tibble(planid=c(p1,p2)), validScores.tbl) %>%
+    select(-tla,-planid)
+  
+  rows.tib[1,]-rows.tib[2,]
+}
+
+propmatch.df %<>% 
+  rowwise() %>%
+  mutate(counter=counterScore(planid,previous_id)) %>%
+  ungroup() %>% 
+  unpack(counter) %>%
+  rename(score_difference=official_score, 
+         split_difference = municiple_splits, 
+         win_difference = average_winning_margins,
+         population_difference = worst_population_deviation,
+         competitive_difference = competitive_districts)
+
+propmatch.df  %>% 
+  filter(actortype %in% c("major","minor")) %>%
+  GGally::ggpairs(
+    columns=c("score_difference","split_difference", "competitive_difference", "population_difference", "win_difference"), 
+                   aes(color=actortype))
+
+library(gtsummary)
+
+propmatch.df %>% 
+  filter(actortype %in% c("major","minor")) %>%
+  mutate(actortype = fct_drop(actortype)) %>%
+  select("score_difference","split_difference", "competitive_difference", "population_difference", "win_difference","actortype") %>%
+  tbl_summary(by=actortype,type = list(everything() ~ "continuous"),
+          statistic = list(all_continuous() ~ "{mean} ({sd}) [{min}-{max}]") ) 
+
+propmatch.df %>% 
+  filter(actortype %in% c("major")) %>%
+  mutate(actortype = fct_drop(actortype)) %>%
+  select("score_difference","split_difference", "competitive_difference", "population_difference", "win_difference","year") %>%
+  tbl_summary(by=year,type = list(everything() ~ "continuous"),
+          statistic = list(all_continuous() ~ "{mean} ({sd}) [{min}-{max}]") ) 
+
+
 ```
 ## Municipality Analysis
 ```{r municipality-demographic}
@@ -1106,6 +1191,35 @@ munis_actors_2015.tbl <- votes.2015.df %>%
   mutate(propvotes=sumvotes/sum(sumvotes,na.rm=TRUE)) %>% 
   ungroup() 
 
+munis_actors_2018.tbl <- votes.2018.df %>% 
+  mutate(edon=factor(edon,labels = statecodes.df %>% pull(tla))) %>%
+  group_by(edon,inegi,actor) %>% 
+  summarize(sumvotes=sum(votes,na.rm=TRUE)) %>%
+  select(edon,inegi,actor,sumvotes) %>%
+  group_by(edon,inegi) %>%
+  mutate(propvotes=sumvotes/sum(sumvotes,na.rm=TRUE)) %>% 
+  ungroup() 
+
+winvotes_2015.df <- votes.2015.df %>% 
+  mutate(edon=factor(edon,labels = statecodes.df %>% pull(tla))) %>%
+  group_by(edon,disn_adopt,actor) %>% 
+  summarize(actor_vote=sum(votes,na.rm=TRUE)) %>%
+  group_by(edon,disn_adopt) %>%
+  summarize(distmaxvote=max(actor_vote),
+            distwinvote=sort(actor_vote,decreasing=TRUE)[2],
+            disttotal=sum(actor_vote,na.rm=TRUE),
+            winthresh = distwinvote/disttotal)
+
+winvotes_2018.df <- votes.2018.df %>% 
+  mutate(edon=factor(edon,labels = statecodes.df %>% pull(tla))) %>%
+  group_by(edon,disn_adopt,actor) %>% 
+  summarize(actor_vote=sum(votes,na.rm=TRUE)) %>%
+  group_by(edon,disn_adopt) %>%
+  summarize(distmaxvote=max(actor_vote),
+            distwinvote=sort(actor_vote,decreasing=TRUE)[2],
+            disttotal=sum(actor_vote,na.rm=TRUE),
+            winthresh = distwinvote/disttotal)
+
 # compare municipality party votes to district winning vote thresholds
 
 munis_actors_2015.tbl %>% 
@@ -1113,22 +1227,31 @@ munis_actors_2015.tbl %>%
   summarize(maxvotes=max(sumvotes,na.rm=TRUE)) %>%
   ungroup() %>%
   ggplot(aes(x=edon,y=maxvotes,color="Municipal Party Vote")) +
-  geom_boxplot() -> p1
+  geom_boxplot() +
+  labs (subtitle="2015",x="votes",y="") -> p1
 
-winvotes.df <- votes.2015.df %>% 
-  mutate(edon=factor(edon,labels = statecodes.df %>% pull(tla))) %>%
-  group_by(edon,disn_adopt,actor) %>% 
-  summarize(actor_vote=sum(votes,na.rm=FALSE)) %>%
-  group_by(edon,disn_adopt) %>%
-  summarize(distmaxvote=max(actor_vote),distwinvote=sort(actor_vote,decreasing=TRUE)[2])
 
 geom_boxplot(
-  data = winvotes.df, 
+  data = winvotes_2015.df, 
   aes(x=edon,y=distwinvote,color="Winning Vote Threshold") ) -> p1.1
 
-plot(p1 + p1.1 + coord_flip())
+
+munis_actors_2018.tbl %>% 
+  group_by(edon,inegi) %>%      
+  summarize(maxvotes=max(sumvotes,na.rm=TRUE)) %>%
+  ungroup() %>%
+  ggplot(aes(x=edon,y=maxvotes,color="Municipal Party Vote")) +
+  geom_boxplot() +
+    labs (subtitle="2017",x="votes",y="") -> p2
 
 
+geom_boxplot(
+  data = winvotes_2018.df, 
+  aes(x=edon,y=distwinvote,color="Winning Vote Threshold") ) -> p2.1
+
+(p1 + p1.1 + coord_flip()) / (p2 + p2.1 + coord_flip())
+
+### Distribution of concentration at different levels of aggregation
 votes.2015.df %>% 
   group_by(edon,actor) %>% 
   summarize(sumvotes=sum(votes,na.rm=TRUE)) %>%
@@ -1153,17 +1276,50 @@ group_by(edon,actor,inegi) %>%
     bw=.01,outline.type="both",mapping=aes(fill="municipality"),alpha=.1) + 
   theme(axis.text.y=element_blank())-> p2
 
-p2
+
 plot (p2+p2+facet_wrap(vars(edon),4))
 
+## Municipality influence in 2015 and 2017
+  votes.2015.df %>% rename(district=disn_adopt) %>%
+    scoreMuniDominate() %>% 
+    ggplot(aes(x=prop_influence)) + 
+    geom_histogram(bins=15) + 
+        stat_bin(aes(y=..count.., label=..count..), geom="text", bins=15, vjust=-.5) +
+         geom_vline(xintercept=.30 , colour="grey") +
+        geom_text(aes(x=.32, label="Win threshold.", y=50), colour="red", angle=90, vjust = 0, text=element_text(size=11))+
+        labs(y="", 
+             x="Share of District Vote", 
+             title="Influence of Municipalities", 
+             subtitle="2015"
+          )  -> inf2015.pl
+  
+  votes.2018.df %>% rename(district=disn_adopt) %>% scoreMuniDominate() %>%
+  ggplot(aes(x=prop_influence)) + 
+    geom_histogram(bins=15) + 
+        stat_bin(aes(y=..count.., label=..count..), geom="text", bins=15, vjust=-.5) +
+        geom_vline(xintercept=.30 , colour="grey") +
+        geom_text(aes(x=.32, label="Win threshold.", y=50), colour="red", angle=90, vjust = 0, text=element_text(size=11))+
+       labs(y="Number of districts", 
+             x="Share of District Vote", 
+             title="", 
+             subtitle="2017",
+             caption = str_wrap("Vote for a single party that comes from a single unsplit municipality.",40))-> inf2018.pl
+  
+  
+inf2015.pl+inf2018.pl
+
+# winning vote distribution
+
+(winvotes_2015.df %>% 
+  ggplot(aes(x=winthresh)) + 
+  geom_histogram())/
+(winvotes_2018.df %>% 
+  ggplot(aes(x=winthresh)) + 
+  geom_histogram())
+
+# splits vs margins
 
 planProcessing.df  %>% rowwise() %>% mutate(meanwin=mean(plan_2015_actors_winMargins$win_margin,na.rm=TRUE))%>% ggplot(aes(x=plan_2015_muniSplits,y=meanwin),alpha=.01) + geom_jitter() 
-```
-## Counterproposal properties
-```{r}
-# valid major party proposals
-majProp.tib <- proptrans.df %>% filter(VALIDPLAN==TRUE, actortype=="major") %>% select(-plan)
-majProp.tib 
 ```
 
 
