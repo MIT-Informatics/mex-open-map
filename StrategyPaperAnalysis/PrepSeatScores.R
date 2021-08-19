@@ -62,7 +62,7 @@ scoreMuniDominate <-function(x) {
     ungroup()
   
   munidominate <- x %>%
-    anti_join(splitinegi) %>%
+    anti_join(splitinegi,by=c("edon","inegi")) %>%
     group_by(edon,district,inegi,actor) %>%
     summarize(totalactor=sum(votes,na.rm=TRUE)) %>%
     group_by(edon,district,inegi) %>%
@@ -71,10 +71,52 @@ scoreMuniDominate <-function(x) {
     summarize(maxinfluence=max(maxtotalactor,na.rm=TRUE)) %>%
     ungroup()
   
-  munidominate %<>% right_join(distotals) %>% mutate(prop_influence=maxinfluence/totalvote, prop_influence=replace_na(prop_influence,0) )
+  munidominate %<>% right_join(by=c("edon","district"),distotals) %>% mutate(prop_influence=maxinfluence/totalvote, prop_influence=replace_na(prop_influence,0) )
   munidominate
   
 }
+
+planHash <- function(x) {
+  if (is.null(x)) return("")
+  if(length(x)==1) {
+    x==x[[1]]
+  }
+  x %>% 
+    group_by(district) %>% 
+    summarize(g=list(sort(seccion)),h=head(unlist(g),n=1)) %>%
+    ungroup() %>%
+    arrange(h) %>%
+    select(g) %>% 
+    rlang::hash()
+}
+
+
+propfull.df %<>%  rowwise() %>% mutate(
+  planhash=planHash(plan)
+)
+
+# INE did not keep its electronic system up to date  -- especially as it modified plans
+# We can tell there is a mismatch when a new proposal receives a different score, but the
+# plan-file in the system is identical to a previous plan (which is impossible). We mark the
+# later plans that don't validate with the earlier plans as as missing. 
+
+propfull.df %>%
+  ungroup() %>%
+  mutate(row=row_number()) %>%
+  select(planid, planhash, edon, actor, stage, year,row) %>%
+  filter(!is.na(planid), planhash !="") %>%
+  arrange(planhash,year,edon,stage,actor) %>%
+  group_by(planhash) %>% 
+  filter(n()>1) %>% 
+  filter(length(unique(planid))>1) %>% # this portion identified groups with mismatches
+  mutate(matched = (planid == planid[1])) %>% 
+  filter(!matched) %>%
+  select(-matched) %>%
+  ungroup() -> missing_by_match_plans.tib
+
+badrows <-  missing_by_match_plans.tib %>% pull(row)
+propfull.df[badrows,"plan"] <- NA
+
 
 # use a local blocks to keep environment neat, only the objects defined outside will remain after run
 ## BEGIN LOCAL BLOCK
@@ -400,32 +442,7 @@ planProcessing.df %<>%  rowwise() %>% mutate(
   )
 
 
-### Compute hashes
-planHash <- function(x) {
-  if (is.null(x)) return("")
-  if(length(x)==1) {
-    x==x[[1]]
-  }
-  x %>% 
-    group_by(district) %>% 
-    summarize(g=list(sort(seccion)),h=head(unlist(g),n=1)) %>%
-    ungroup() %>%
-    arrange(h) %>%
-    select(g) %>% 
-    rlang::hash()
-}
-
-
-planProcessing.df %<>%  rowwise() %>% mutate(
-  planhash=planHash(plan)
-)
-
 rm(el,vars.srclist)
-# DEBUG
- propfull_plus.df <- propfull.df %>% rowwise() %>% mutate(planhash=planHash(plan))
- propfull_plus.df %<>% group_by(planhash) %>% mutate(hashcount=n()) %>% ungroup %>% arrange(desc(hashcount))
-tmp<- propfull_plus.df %>% filter(planhash!="",) %>% arrange(hashcount,planhash,planid) %>% select(planhash,hashcount,SCORE,planid,Entidad,year,stage,govlevel,actor)
-tmp %<>% group_by(planhash) %>% mutate(allsame=length(unique(SCORE))==1) %>% filter(!is.na(planid)) %>% filter(allsame==FALSE) %>% group_by(planhash) %>% mutate(nhashcount=n()) %>% filter(nhashcount>1)
 
 #Done:
 # Ghostplans -- INE system provides plan even if it was not submitted. Plan delivered is often the
@@ -434,7 +451,8 @@ tmp %<>% group_by(planhash) %>% mutate(allsame=length(unique(SCORE))==1) %>% fil
 #TODO: 
 # - academic- districts and 13.74065-2-2013	have wrong number of dists
 # - missing seccions in maps
-# - plan hash matches on different plans- missing replace
-# revealed prefs
+# DONE: plan hash matches on different plans- mark missing
+# - replace missing plans from separate source
+# DONE: revealed prefs
 # DONE: municipality splits
 # DONE: municipality homongeneity
