@@ -72,7 +72,7 @@ contestSum.df %<>% rowwise() %>% mutate( phase2_violation = ( phase2_notlow & !p
 ```
 ```{r}
 ## Create Plan Data Structure
- planProp.df <- proptrans.df %>% filter(!is.na(planid)) %>% group_by(planid) %>% summarize(stages=list(sort(unique(stage))),rscore=unique(rscore),edon=unique(edon),year=unique(year),VALIDPLAN=unique(VALIDPLAN),tla=unique(tla))
+ planProp.df <- proptrans.df %>% filter(!is.na(planid)) %>% group_by(planid) %>% summarize(stages=list(sort(unique(stage))),rscore=unique(rscore),edon=unique(edon),year=unique(year),VALIDPLAN=unique(VALIDPLAN),tla=unique(tla), hasplan=unique(hasplan))
 planProp.df %<>% rowwise() %<>% mutate(win_final=(5 %in% stages))
 planProp.df %<>% rowwise() %>% mutate(first_appeared=stages[[1]])
 
@@ -85,6 +85,15 @@ rm(tmpCreators)
 planProp.df %<>% left_join( contestSum.df %>% select( year, edon, lowestvalid, phase2_lowest, final_lowest, phase2_unanimous, final_unanimous, final_section8, final_violation ))
 planProp.df %<>% mutate(unanimous_creator=(first_appeared==2 & phase2_unanimous) | (first_appeared==4 & final_unanimous) )
 planProp.df %<>% mutate( best_plan = ( rscore==lowestvalid & VALIDPLAN ))
+
+planProp.df %<>% 
+   group_by(year,edon) %>% 
+   filter(hasplan,VALIDPLAN) %>% 
+   mutate(best_nonmissing_score=min(rscore)) %>% 
+   rowwise() %>% mutate(best_nonmissing=(rscore==best_nonmissing_score)) %>%
+   select(-best_nonmissing_score) %>% 
+   ungroup()
+
 planProp.df %<>% mutate( win_section8 = win_final & final_section8)
 planProp.df %<>% mutate( win_violation = win_final & final_violation)
 planProp.df %<>% select( -lowestvalid, -phase2_lowest, -final_lowest, -phase2_unanimous, -final_unanimous, -final_section8, -final_violation )
@@ -563,7 +572,7 @@ comp.tbl %<>% bind_rows(
   )
 )
 comp.tbl %<>% bind_rows(
-  planFull.df %>% filter(best_plan) %>% 
+  planFull.df %>% filter(best_nonmissing) %>% 
   group_by(year) %>% 
   summarize(
     scenario="best",
@@ -610,7 +619,7 @@ comp.tbl %<>% bind_rows(
   )
 )
 comp.tbl %<>% bind_rows(
-  planFull.df %>% filter(best_plan) %>% 
+  planFull.df %>% filter(best_nonmissing) %>% 
   group_by(year, creator_coded) %>% 
   summarize(
     scenario="best",
@@ -662,13 +671,13 @@ seats.tbl %<>% bind_rows(
     rename(actor=win_actor,seats=n) %>% mutate(year_elec=2018, scenario="winner")
 )
 seats.tbl %<>% bind_rows(
-  planFull.df %>% filter(best_plan) %>% group_by(year) %>%
+  planFull.df %>% filter(best_nonmissing) %>% group_by(year) %>%
     summarize(results=list(bind_rows(plan_2015_actors_winMargins))) %>%
     unnest(c(results,year)) %>% group_by(year) %>% count(win_actor) %>%
     rename(actor=win_actor,seats=n) %>% mutate(year_elec=2015, scenario="best")
 )
 seats.tbl %<>% bind_rows(
-  planFull.df %>% filter(best_plan) %>% group_by(year) %>%
+  planFull.df %>% filter(best_nonmissing) %>% group_by(year) %>%
     summarize(results=list(bind_rows(plan_2018_actors_winMargins))) %>%
     unnest(c(results,year)) %>% group_by(year) %>% count(win_actor) %>%
     rename(actor=win_actor,seats=n) %>% mutate(year_elec=2018, scenario="best")
@@ -839,13 +848,13 @@ edon.tbl %<>% bind_rows(
 )
 
 edon.tbl %<>% bind_rows(
-  planFull.df %>% filter(best_plan) %>% group_by(year, edon) %>%
+  planFull.df %>% filter(best_nonmissing) %>% group_by(year, edon) %>%
     summarize(results=list(bind_rows(plan_2015_actors_winMargins))) %>%
     unnest(c(results,year)) %>% group_by(year, edon) %>% count(win_actor) %>%
     rename(actor=win_actor,seats=n) %>% mutate(year_elec=2015, scenario="best")
 )
 edon.tbl %<>% bind_rows(
-  planFull.df %>% filter(best_plan) %>% group_by(year, edon) %>%
+  planFull.df %>% filter(best_nonmissing) %>% group_by(year, edon) %>%
     summarize(results=list(bind_rows(plan_2018_actors_winMargins))) %>%
     unnest(c(results,year)) %>% group_by(year, edon) %>% count(win_actor) %>%
     rename(actor=win_actor,seats=n) %>% mutate(year_elec=2018, scenario="best")
@@ -1326,7 +1335,7 @@ planProcessing.df  %>% rowwise() %>% mutate(meanwin=mean(plan_2015_actors_winMar
 #Diagnostics
 ```{r}
 seats.tbl %>% group_by(year,year_elec,scenario) %>% summarize(total=sum(seats))
-nullids <- planFull.df %>% filter((win_final | best_plan | first_appeared==1) & is.null(plan)) %>% select(planid)
+nullids <- planFull.df %>% filter((win_final | best_nonmissing | first_appeared==1) & is.null(plan)) %>% select(planid)
 nullplans<- left_join(nullids,propfull.df)
 nullplans %>% gt()
 
