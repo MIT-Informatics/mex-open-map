@@ -560,7 +560,8 @@ planFull.df %<>% rowwise() %>% mutate(reapportioned = edon %in% reapportionedEdo
 ```
 Competitive plan analysis
 By Year
-```{r}
+```{r, strategy-table-5}
+# strategy table 5
 comp.tbl <- NULL
 comp.tbl %<>% bind_rows(
   planFull.df %>% filter(win_final) %>% 
@@ -607,7 +608,8 @@ comp.tbl %>% group_by(year) %>% gt()
 ```
 Competitive plan analysis
 By Year
-```{r}
+```{r, competitive-by-party}
+# strategy table 6
 comp.tbl <- NULL
 comp.tbl %<>% bind_rows(
   planFull.df %>% filter(win_final) %>% 
@@ -656,7 +658,9 @@ comp.tbl %>% group_by(year,creator_coded) %>% filter(creator_coded != "ALGORITHM
 
 
 Party seat analysis
-```{r}
+```{r, strategy-table-2}
+
+# strategy table 2
 seats.tbl <- NULL
 seats.tbl %<>% bind_rows(
   planFull.df %>% filter(win_final) %>% group_by(year) %>%
@@ -720,6 +724,7 @@ seats.tbl %>% pivot_wider(names_from=scenario,values_from=seats,values_fill=0 ) 
 
 
 ```{r mexico-state-gerrymandering}
+# strategy table 4
 seats_mex.tbl <- NULL
 seats_mex.tbl %<>% bind_rows(
   planFull.df %>% filter(win_final) %>% 
@@ -879,8 +884,8 @@ edon.tbl %>% pivot_wider(names_from=scenario,values_from=seats,values_fill=0) %>
 ```
 
 # party plans
-```{r}
-
+```{r, strategy-table-3}
+# strategy table 3
 planseats_2018.df <- planFull.df %>% rowwise() %>% filter(!is.null(plan) & VALIDPLAN) %>% unnest(plan_2018_actors_winMargins_actorWins) %>% select(planid,edon,year,win_actor,n) %>% rename(actor=win_actor,seats=n)
 
 planseats_2015.df <- planFull.df %>% rowwise() %>% filter(!is.null(plan) & VALIDPLAN) %>% unnest(plan_2015_actors_winMargins_actorWins) %>% select(planid,edon,year,win_actor,n) %>% rename(actor=win_actor,seats=n)
