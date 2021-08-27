@@ -8,7 +8,7 @@ output:
   html_notebook: default
 ---
 # Setup
-```{r}
+```{r, setup}
 ## Libraries
 library(tidyverse)
 library(magrittr)
@@ -88,7 +88,7 @@ planProp.df %<>% mutate( best_plan = ( rscore==lowestvalid & VALIDPLAN ))
 
 planProp.df %<>% 
    group_by(year,edon) %>% 
-   filter(hasplan,VALIDPLAN) %>% 
+   filter(hasplan) %>% 
    mutate(best_nonmissing_score=min(rscore)) %>% 
    rowwise() %>% mutate(best_nonmissing=(rscore==best_nonmissing_score)) %>%
    select(-best_nonmissing_score) %>% 
@@ -175,14 +175,14 @@ thirdparty.tab <- proptrans.df %>% group_by(year,actor2) %>% summarise (
 ) 
 thirdparty.tab %>% 
   filter(grandtotal>0) %>%
-  select(-grandtotal) %>%
+  select(-grandtotal,-outside) %>%
   gt()  %>%
-  cols_label( "actor2" = "Actor","outside"="Admin Proposals","missing"="Missing Plans","unscored"="Proposals Not Scored" ) %>%
+  cols_label( "actor2" = "Actor","missing"="Missing Plans","unscored"="Nonscored" ) %>%
   tab_header(title="Undocumented Proposals") %>%
   tab_source_note(
     source_note = "Note: Admin proposals do not include interventions during decision phase to change plans." ) %>%
   data_color( 
-      columns = vars(outside,missing,unscored), 
+      columns = vars(missing,unscored), 
       colors = scales::col_numeric( 
       palette = c( "white","orange"), 
         domain = c(0,7) 
@@ -281,30 +281,24 @@ res_events_grp.df %<>% bind_rows(
 )
 
 res_events_grp.df %<>% bind_rows(
+  contestSum.df %>% 
+  rowwise () %>% 
+  mutate ( adminplans=(length(phase2_plans)-length(phase2_plans_party)) +
+                           (length(phase4_plans)-length(phase4_plans_party))) %>% 
+     group_by(year) %>% summarise(
+      events = sum(adminplans)  , 
+      denominator = n()*2, type = "INE Added proposals" , category="compliance"
+  )
+)
+
+res_events_grp.df %<>% bind_rows(
   contestSum.df %>% group_by(year) %>% summarise(
       events = sum(phase2_violation) + sum(final_violation) , 
       denominator = n()*2, type = "Higher Score Plan Without Unanimity" , category="compliance"
   )
 )
 
-#TODO side by side groups?
-res_events_grp.df %>% group_by(year) %>% summarize(
-  type=type, 
-  count=events,
-  percent=count/denominator,
-  ) %>%
-  gt() %>% 
-    cols_label( percent="" , "type"="","count"="") %>%
-    fmt_percent(columns="percent") %>%
-    tab_header(title="Process Exceptions") %>%
-    tab_source_note( source_note = "Note: Exceptions are suspect, but not necessarily illegal." ) %>%
-    data_color (
-      columns = vars(percent), 
-      colors = scales::col_numeric( 
-      palette = c( "white","orange"), 
-        domain = c(0,.25) ) 
-    ) %>% 
-    gt_theme_538() 
+
 
 res_events_grp.df %>% group_by(year) %>% summarize(
   type=type, 
