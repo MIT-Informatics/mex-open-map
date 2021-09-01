@@ -173,22 +173,22 @@ thirdparty.tab <- proptrans.df %>% group_by(year,actor2) %>% summarise (
   unscored=sum(!is.na(PROPOSED) & !PROPOSED & hasplan ),
   grandtotal=outside+missing+unscored,
 ) 
-thirdparty.tab %>% 
-  filter(grandtotal>0) %>%
-  select(-grandtotal,-outside) %>%
-  gt()  %>%
-  cols_label( "actor2" = "Actor","missing"="Missing Plans","unscored"="Nonscored" ) %>%
-  tab_header(title="Undocumented Proposals") %>%
-  tab_source_note(
-    source_note = "Note: Admin proposals do not include interventions during decision phase to change plans." ) %>%
-  data_color( 
-      columns = vars(missing,unscored), 
-      colors = scales::col_numeric( 
-      palette = c( "white","orange"), 
-        domain = c(0,7) 
-      )
-  ) %>% 
-  gt_theme_538() 
+#thirdparty.tab %>% 
+  #filter(grandtotal>0) %>%
+  #select(-grandtotal,-outside) %>%
+  #gt()  %>%
+  #cols_label( "actor2" = "Actor","missing"="Missing Plans","unscored"="Nonscored" ) %>%
+  #tab_header(title="Undocumented Proposals") %>%
+  #tab_source_note(
+    #source_note = "Note: Admin proposals do not include interventions during decision phase to change plans." ) %>%
+  #data_color( 
+      #columns = vars(missing,unscored), 
+      #colors = scales::col_numeric( 
+      #palette = c( "white","orange"), 
+        #domain = c(0,7) 
+      #)
+  #) %>% 
+  #gt_theme_538() 
 ```
 ## Process Overview
 ```{r  fig.height=2, fig.width=10 }
@@ -230,8 +230,23 @@ pl4<-planProp.df %>% filter(VALIDPLAN) %>% group_by(planid) %>% unnest(cols=stag
 strip.background =element_rect(fill=alpha("blue",.3))) +
     scale_color_hue("creator_label",drop=FALSE)
 ggarrange(pl1,pl2,pl3,pl4,ncol=4)
-rm(pl1,pl2,pl3,pl4) 
+rm(pl1,pl2,pl3,pl4)
 ```
+```{r fig.width=10, fig.height=2}
+#Pull out edon == 11 (Gua) for map analysis
+ex_11_13 <- planProp.df %>% filter(VALIDPLAN) %>% group_by(planid) %>% unnest(cols=stages) %>% filter(year==2013, edon==11) %>% 
+  ggplot(aes(x=stages,y=rscore,color=creator_label,group=planid)) +geom_point()+geom_line()+geom_vline(xintercept=c(2,4),alpha=.3,color="blue")+
+  facet_grid(rows=vars(tla), cols=vars(year), scales="free_y")+theme(legend.position = "none") +
+    scale_color_hue("creator_label",drop=FALSE)
+ex_11_17 <- planProp.df %>% filter(VALIDPLAN)  %>% group_by(planid) %>% unnest(cols=stages) %>% filter(year==2017, edon==11) %>% 
+   ggplot(aes(x=stages,y=rscore,color=creator_label,group=planid))+geom_point()+geom_line()+ geom_vline(xintercept=c(2,4),alpha=.3,color="blue")+
+  facet_grid(rows=vars(tla), cols=vars(year), scales="free_y") + theme(axis.title.y=element_blank(), strip.background =element_rect(fill=alpha("blue",.3)))+
+    scale_color_hue("creator_label",drop=FALSE)
+ggarrange(ex_11_13, ex_11_17, ncol=2)
+rm(ex_11_13, ex_11_17)
+
+```
+
 ## Algorithmic Score Efficency 
 ```{r}
 efficiency.df <- contestSum.df %>% rowwise() %>% mutate(efficiency=(1-(phase1_start-lowestvalid)/lowestvalid)*100) %>% select(year,edon,efficiency) %>% mutate(year=as.factor(year))
