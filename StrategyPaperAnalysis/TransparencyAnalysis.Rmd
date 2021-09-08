@@ -173,22 +173,22 @@ thirdparty.tab <- proptrans.df %>% group_by(year,actor2) %>% summarise (
   unscored=sum(!is.na(PROPOSED) & !PROPOSED & hasplan ),
   grandtotal=outside+missing+unscored,
 ) 
-#thirdparty.tab %>% 
-  #filter(grandtotal>0) %>%
-  #select(-grandtotal,-outside) %>%
-  #gt()  %>%
-  #cols_label( "actor2" = "Actor","missing"="Missing Plans","unscored"="Nonscored" ) %>%
-  #tab_header(title="Undocumented Proposals") %>%
-  #tab_source_note(
-    #source_note = "Note: Admin proposals do not include interventions during decision phase to change plans." ) %>%
-  #data_color( 
-      #columns = vars(missing,unscored), 
-      #colors = scales::col_numeric( 
-      #palette = c( "white","orange"), 
-        #domain = c(0,7) 
-      #)
-  #) %>% 
-  #gt_theme_538() 
+thirdparty.tab %>% 
+  filter(grandtotal>0) %>%
+  select(-grandtotal,-outside) %>%
+  gt()  %>%
+  cols_label( "actor2" = "Actor","missing"="Missing Plans","unscored"="Nonscored" ) %>%
+  tab_header(title="Undocumented Proposals") %>%
+  tab_source_note(
+    source_note = "Note: Admin proposals do not include interventions during decision phase to change plans." ) %>%
+  data_color( 
+      columns = vars(missing,unscored), 
+      colors = scales::col_numeric( 
+      palette = c( "white","orange"), 
+        domain = c(0,7) 
+      )
+  ) %>% 
+  gt_theme_538() 
 ```
 ## Process Overview
 ```{r  fig.height=2, fig.width=10 }
