@@ -8,7 +8,7 @@ output:
   html_notebook: default
 ---
 # Setup
-```{r, setup}
+```{r setup}
 ## Libraries
 library(tidyverse)
 library(magrittr)
@@ -1343,6 +1343,144 @@ inf2015.pl+inf2018.pl
 # splits vs margins
 
 planProcessing.df  %>% rowwise() %>% mutate(meanwin=mean(plan_2015_actors_winMargins$win_margin,na.rm=TRUE))%>% ggplot(aes(x=plan_2015_muniSplits,y=meanwin),alpha=.01) + geom_jitter() 
+```
+
+
+```{r ideal-gerry}
+
+votes.2015.df <- read_csv("mxDistritos-data/raw-seccion-2015.csv", 
+                          col_types=cols( .default = col_double()))
+votes.2018.df <- read_csv("mxDistritos-data/raw-seccion-2018.csv",
+                          col_types=cols( .default = col_double()))
+votes.2018.df %<>%  clean_vraw()
+votes.2015.df %<>%  clean_vraw()
+
+
+optGerry <- function(year, target_actor,mg=0,th=.5) {
+  v.df <-eval(as.symbol( paste("votes",year,"df",sep=".") ))
+  
+  upperEst <- function(nd,ts,as,mgo=mg, tho=th) {
+        tt.l <- (ts/(nd))*(1-mgo) * tho +1
+        tt.u <- (ts/(nd))*(1+mgo) * tho +1
+        res.lower  <-  min(floor(as/tt.u),floor(nd/2))
+        res.upper <- floor((as - res.lower * tt.l) / tt.u)
+        res <- res.lower + res.upper
+        res <-  max(0,min(nd,res))
+        res
+  }
+  
+  
+  # 1000 pop
+  # 5 districts
+  # absorption = 1000/5 * .5 
+  
+  lowerEst <- function(nd,ts,as,tp, mgo=mg, tho=th) {
+      res <- 0
+      as.remaining <- as
+      nd.remaining <- nd
+      
+      
+      while ((as.remaining/nd.remaining) > (ts/nd.remaining * tho)) { #check to see if cracking works on remainder
+        # pack a district with supporters
+        res %<>% +1
+        as.remaining %<>% - (tp/nd*(1+mgo))
+      }
+      res
+  }
+  
+  state_summary.df <- v.df %>% 
+    filter(actor==target_actor) %>% 
+    group_by(edon) %>%
+    summarize(total_pop = sum(na.rm=TRUE, lisnom),
+              actor_sum = sum(na.rm=TRUE, votes),
+              turnout_sum = sum(na.rm=TRUE, efec),
+              ndists = length(unique(na.omit(disn_adopt)))) %>%
+    ungroup() %>%
+    rowwise() %>%
+    mutate(
+      ideal_pop = total_pop/ndists,
+      turnout_target = turnout_sum / ndists * .5,
+      actor_upper=upperEst(ndists,turnout_sum,actor_sum),
+      actor_lower=lowerEst(ndists,turnout_sum,actor_sum,total_pop),
+    ) %>% ungroup()
+#  print(state_summary.df)
+  state_summary.df %>% summarize(max=sum(actor_upper),min=sum(actor_lower))
+}
+
+ay.tbl <- expand_grid(actor=c("MORENA","MC","PAN","PRI","PRD"), year=c(2015,2018))
+
+optTable.tbl <- actor_best.tbl
+
+optTable.tbl  %<>% bind_rows( ay.tbl %>% 
+  rowwise() %>%
+  mutate( opt = optGerry( year , actor,th=.42,mg=.15)) %>%
+  unpack(opt) %>%
+  pivot_longer(cols=c(min,max), values_to="seats", names_to="type") %>% 
+  rowwise() %>%
+  mutate(type=paste(sep="",type,"_theory")) %>%
+  ungroup()
+)
+
+
+
+
+# How many districts in 2015 were won for PRI by a single municipality
+# How many districts in 2018 were won for MORENA by a single municipality
+
+votes.2015.df %>% rename(district=disn_adopt) %>%
+    scoreMuniDominate()  %>%
+    rename(disn_adopt=district) %>%
+   mutate(edon=factor(edon,labels = statecodes.df %>% pull(tla))) -> smd.2015.tbl
+
+smd.2015.tbl %<>% left_join(winvotes_2015.df)
+
+votes.2018.df %>% rename(district=disn_adopt) %>%
+    scoreMuniDominate()  %>%
+      rename(disn_adopt=district) %>%
+   mutate(edon=factor(edon,labels = statecodes.df %>% pull(tla))) -> smd.2018.tbl
+smd.2018.tbl %<>% left_join(winvotes_2018.df)
+
+winvotes_2015.df %>% ungroup()  %>% select(winthresh) %>% pull() %>% quantile(probs = c(.5,.8,.9,.95,.99))
+winvotes_2018.df %>% ungroup()  %>% select(winthresh) %>% pull() %>% quantile(probs = c(.5,.8,.9,.95,.99))
+
+
+
+smd.2015.tbl %>% filter(winthresh <= prop_influence)  
+smd.2018.tbl %>% filter(winthresh <= prop_influence) %>% nrow()
+
+
+optTable.tbl %>%
+  pivot_wider(names_from=type,values_from=seats,values_fill=0) %>%
+  rename(max_submitted=max,min_submitted=min) %>%
+  relocate(actor,min_submitted,max_submitted) %>%
+  rowwise() %>%
+  mutate(year=as.character(year),
+         mapping_freedom = max_submitted-min_submitted, 
+         distribution_freedom = max_theory-min_theory
+         ) %>%
+  arrange(year,actor) -> optTable_l.tbl
+
+optTable_l_delta.tbl <-
+  optTable_l.tbl %>% 
+  group_by(actor) %>%
+  summarize(across(-year,function(x)x[2]-x[1]), year="Change: 2018-2015")
+
+optTable_l_delta.tbl
+bind_rows(optTable_l.tbl,optTable_l_delta.tbl) %>%
+  arrange(year,actor) %>%
+  group_by(year) %>%
+  gt() %>%
+  gt_theme_538()
+
+optTable_l.tbl
+
+
+optTable.tbl %>%
+
+
+
+
+
 ```
 
 
