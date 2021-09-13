@@ -38,9 +38,9 @@ scoreMuniDominate <-function(x) {
     group_by(edon,district,inegi,actor) %>%
     summarize(totalactor=sum(votes,na.rm=TRUE)) %>%
     group_by(edon,district,inegi) %>%
-    summarize(maxtotalactor=max(totalactor,na.rm=TRUE)) %>%
+    summarize(maxtotalactor=max(totalactor,na.rm=TRUE),topactor=actor[which(totalactor==maxtotalactor)]) %>%
     group_by(edon,district) %>%
-    summarize(maxinfluence=max(maxtotalactor,na.rm=TRUE)) %>%
+    summarize(maxinfluence=max(maxtotalactor,na.rm=TRUE),maxactor=topactor[which(maxtotalactor==maxinfluence)]) %>%
     ungroup()
   
   munidominate %<>% right_join(by=c("edon","district"),distotals) %>% mutate(prop_influence=maxinfluence/totalvote, prop_influence=replace_na(prop_influence,0) )

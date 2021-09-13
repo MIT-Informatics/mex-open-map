@@ -1343,6 +1343,31 @@ inf2015.pl+inf2018.pl
 # splits vs margins
 
 planProcessing.df  %>% rowwise() %>% mutate(meanwin=mean(plan_2015_actors_winMargins$win_margin,na.rm=TRUE))%>% ggplot(aes(x=plan_2015_muniSplits,y=meanwin),alpha=.01) + geom_jitter() 
+
+
+# How many districts in 2015 were won for PRI by a single municipality
+# How many districts in 2018 were won for MORENA by a single municipality
+
+votes.2015.df %>% rename(district=disn_adopt) %>%
+    scoreMuniDominate()  %>%
+    rename(disn_adopt=district) %>%
+   mutate(edon=factor(edon,labels = statecodes.df %>% pull(tla))) -> smd.2015.tbl
+
+smd.2015.tbl %<>% left_join(winvotes_2015.df)
+
+votes.2018.df %>% rename(district=disn_adopt) %>%
+    scoreMuniDominate()  %>%
+      rename(disn_adopt=district) %>%
+   mutate(edon=factor(edon,labels = statecodes.df %>% pull(tla))) -> smd.2018.tbl
+smd.2018.tbl %<>% left_join(winvotes_2018.df)
+
+winvotes_2015.df %>% ungroup()  %>% select(winthresh) %>% pull() %>% quantile(probs = c(.5,.8,.9,.95,.99))
+winvotes_2018.df %>% ungroup()  %>% select(winthresh) %>% pull() %>% quantile(probs = c(.5,.8,.9,.95,.99))
+
+
+
+smd.2015.tbl %>% filter(winthresh <= prop_influence)  %>% nrow()
+smd.2018.tbl %>% filter(winthresh <= prop_influence) %>% nrow()
 ```
 
 
@@ -1424,31 +1449,6 @@ optTable.tbl  %<>% bind_rows( ay.tbl %>%
 
 
 
-# How many districts in 2015 were won for PRI by a single municipality
-# How many districts in 2018 were won for MORENA by a single municipality
-
-votes.2015.df %>% rename(district=disn_adopt) %>%
-    scoreMuniDominate()  %>%
-    rename(disn_adopt=district) %>%
-   mutate(edon=factor(edon,labels = statecodes.df %>% pull(tla))) -> smd.2015.tbl
-
-smd.2015.tbl %<>% left_join(winvotes_2015.df)
-
-votes.2018.df %>% rename(district=disn_adopt) %>%
-    scoreMuniDominate()  %>%
-      rename(disn_adopt=district) %>%
-   mutate(edon=factor(edon,labels = statecodes.df %>% pull(tla))) -> smd.2018.tbl
-smd.2018.tbl %<>% left_join(winvotes_2018.df)
-
-winvotes_2015.df %>% ungroup()  %>% select(winthresh) %>% pull() %>% quantile(probs = c(.5,.8,.9,.95,.99))
-winvotes_2018.df %>% ungroup()  %>% select(winthresh) %>% pull() %>% quantile(probs = c(.5,.8,.9,.95,.99))
-
-
-
-smd.2015.tbl %>% filter(winthresh <= prop_influence)  
-smd.2018.tbl %>% filter(winthresh <= prop_influence) %>% nrow()
-
-
 optTable.tbl %>%
   pivot_wider(names_from=type,values_from=seats,values_fill=0) %>%
   rename(max_submitted=max,min_submitted=min) %>%
@@ -1465,17 +1465,12 @@ optTable_l_delta.tbl <-
   group_by(actor) %>%
   summarize(across(-year,function(x)x[2]-x[1]), year="Change: 2018-2015")
 
-optTable_l_delta.tbl
 bind_rows(optTable_l.tbl,optTable_l_delta.tbl) %>%
   arrange(year,actor) %>%
   group_by(year) %>%
   gt() %>%
   gt_theme_538()
 
-optTable_l.tbl
-
-
-optTable.tbl %>%
 
 
 
