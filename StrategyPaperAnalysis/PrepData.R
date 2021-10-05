@@ -39,7 +39,7 @@ propfull.df %<>% rowwise() %>% mutate(planid=ifelse(is.na(rscore),NA,paste(rscor
 clean_vraw<-function(x){
   
   # create missing coalition columns ,
-  for (cmiss in setdiff(c("morenac","pric","panc","prdc"), x %>% names())) {
+  for (cmiss in setdiff(c("morenac","pric","panc","prdc","pan", "pri", "prd", "pvem", "pt", "mc", "pna", "morena", "pes"), x %>% names())) {
     x %<>% mutate({{ cmiss }} := 0)
   }
   
@@ -64,12 +64,16 @@ clean_vraw<-function(x){
 }
 
 # read  plan, and merge into a new plan column
+votes.2012.df <- read_csv("mxDistritos-data/raw-seccion-2012.csv", 
+                          col_types=cols( .default = col_double()))
 votes.2015.df <- read_csv("mxDistritos-data/raw-seccion-2015.csv", 
                           col_types=cols( .default = col_double()))
 votes.2018.df <- read_csv("mxDistritos-data/raw-seccion-2018.csv",
                           col_types=cols( .default = col_double()))
 votes.2018.df %<>%  clean_vraw()
 votes.2015.df %<>%  clean_vraw()
+votes.2012.df %<>%  clean_vraw()
+
 
 planHash <- function(x) {
   if (is.null(x)) return("")

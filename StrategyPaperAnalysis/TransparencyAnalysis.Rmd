@@ -1120,26 +1120,67 @@ validPlans.tbl <- planFull.df %>%
 
 validPlans.tbl  %<>%
   rowwise() %>% 
-  mutate(mean_win_2015=mean(plan_2015_actors_winMargins$win_margin)) %>%
+  mutate(average_winning_margins =
+          ifelse(
+            year==2013, 
+            mean(plan_2012_actors_winMargins$win_margin),
+            mean(plan_2015_actors_winMargins$win_margin)
+          )
+         ) %>%
   ungroup()
 
+# validScores.tbl <- validPlans.tbl %>%
+#   select("planid","rscore","tla",
+#          "mean_win_2015","plan_2015_muniSplits","plan_2015_actors_winMargins_compCount",
+#          "plan_2015_districts_maxPopDev","plan_2015_actors_winMargins") %>% 
+#   rename(official_score=rscore, municiple_splits = plan_2015_muniSplits,
+#          competitive_districts = plan_2015_actors_winMargins_compCount,
+#          worst_population_deviation = plan_2015_districts_maxPopDev,
+#          average_winning_margins = mean_win_2015,
+#          win_margins = plan_2015_actors_winMargins
+#          )
+
 validScores.tbl <- validPlans.tbl %>%
-  select("planid","rscore","tla",
-         "mean_win_2015","plan_2015_muniSplits","plan_2015_actors_winMargins_compCount",
-         "plan_2015_districts_maxPopDev") %>% 
-  rename(official_score=rscore, municiple_splits = plan_2015_muniSplits,
-         competitive_districts = plan_2015_actors_winMargins_compCount,
-         worst_population_deviation = plan_2015_districts_maxPopDev,
-         average_winning_margins = mean_win_2015
-         )
+  rename(official_score=rscore) %>%
+  rowwise() %>%
+  mutate(
+    municiple_splits = ifelse(year==2013, plan_2012_muniSplits, plan_2015_muniSplits ),
+    competitive_districts = ifelse(year==2013, plan_2012_actors_winMargins_compCount,
+                                   plan_2015_actors_winMargins_compCount ),
+    worst_population_deviation = ifelse(year==2013, plan_2012_districts_maxPopDev, plan_2015_districts_maxPopDev ),
+    win_margins = ifelse(year==2013, list(plan_2012_actors_winMargins), list(plan_2015_actors_winMargins) )
+ 
+  ) %>% 
+  select ("planid", "tla", "municiple_splits", "competitive_districts", 
+          "worst_population_deviation", "average_winning_margins", "win_margins","official_score") 
 
 validScores.tbl %>% 
+  select(-win_margins) %>%
   GGally::ggpairs( columns=c("official_score","municiple_splits", "competitive_districts", "worst_population_deviation", "average_winning_margins"))
 
+
 ```
+
+
 ## revealed preference properties
 ```{r revealed-analysis}
-# valid major party proposals]
+# valid major party proposals
+counterScore <- function(p1,p2,proposer) {
+  if (is.null(proposer)) {proposer=""}
+  rows.tib <- left_join(by="planid",tibble(planid=c(p1,p2)), validScores.tbl) %>%
+    rowwise() %>%
+    mutate(
+      proposer_win_margin = ifelse( is.null(win_margins) , NA_real_ , 
+        (win_margins %>% filter(win_actor==proposer) %>% pull(win_margin) %>% mean(na.rm=TRUE) )
+      )
+      ) %>%
+    mutate(proposer_win_margin=replace_na(proposer_win_margin,0)) %>%
+    select(-tla,-planid,-win_margins)
+
+  rows.tib[1,]-rows.tib[2,]
+}
+
+
 
 propmatch.df <- proptrans.df %>% 
   rowwise() %>%
@@ -1152,45 +1193,67 @@ propmatch.df <- proptrans.df %>%
               rename(previous_id=planid, previous_stage=stage)) %>%
   select(-previous_stage)
 
-counterScore <- function(p1,p2) {
-  rows.tib <- left_join(by="planid",tibble(planid=c(p1,p2)), validScores.tbl) %>%
-    select(-tla,-planid)
-  
-  rows.tib[1,]-rows.tib[2,]
-}
+
+
+propmatch.df%<>% left_join(by="planid", planFull.df %>% select(planid,win_section8,unanimous_creator,creators))
+
 
 propmatch.df %<>% 
   rowwise() %>%
-  mutate(counter=counterScore(planid,previous_id)) %>%
+  mutate(counter=counterScore(planid,previous_id,actor)) %>%
   ungroup() %>% 
   unpack(counter) %>%
   rename(score_difference=official_score, 
          split_difference = municiple_splits, 
          win_difference = average_winning_margins,
          population_difference = worst_population_deviation,
-         competitive_difference = competitive_districts)
-
-propmatch.df  %>% 
-  filter(actortype %in% c("major","minor")) %>%
-  GGally::ggpairs(
-    columns=c("score_difference","split_difference", "competitive_difference", "population_difference", "win_difference"), 
-                   aes(color=actortype))
+         competitive_difference = competitive_districts,
+         proposer_win_difference=proposer_win_margin)
 
 library(gtsummary)
 
 propmatch.df %>% 
   filter(actortype %in% c("major","minor")) %>%
   mutate(actortype = fct_drop(actortype)) %>%
-  select("score_difference","split_difference", "competitive_difference", "population_difference", "win_difference","actortype") %>%
+  select("score_difference","split_difference", "competitive_difference", "population_difference", "win_difference","actortype", "proposer_win_difference") %>%
   tbl_summary(by=actortype,type = list(everything() ~ "continuous"),
-          statistic = list(all_continuous() ~ "{mean} ({sd}) [{min}-{max}]") ) 
-
+          statistic = list(all_continuous() ~ "{mean} ({sd}) [{min}-{max}]") ) %>%
+ as_gt() %>% 
+  tab_header(title="Counterproposal Differences by Actor Type")
+ 
+propmatch.df %>% 
+  filter(actortype %in% c("major")) %>%
+  mutate(actorf = fct_drop(actor)) %>%
+  select("score_difference","split_difference", "competitive_difference", "population_difference", "win_difference","actorf", "proposer_win_difference") %>%
+  tbl_summary(by=actorf,type = list(everything() ~ "continuous"),
+          statistic = list(all_continuous() ~ "{mean} ({sd}) [{min}-{max}]") ) %>%
+ as_gt() %>% 
+  tab_header(title="Counterproposal Differences by Major Party ")
+ 
+ 
 propmatch.df %>% 
   filter(actortype %in% c("major")) %>%
   mutate(actortype = fct_drop(actortype)) %>%
-  select("score_difference","split_difference", "competitive_difference", "population_difference", "win_difference","year") %>%
+  select("score_difference","split_difference", "competitive_difference", "population_difference", "win_difference","year","proposer_win_difference") %>%
   tbl_summary(by=year,type = list(everything() ~ "continuous"),
-          statistic = list(all_continuous() ~ "{mean} ({sd}) [{min}-{max}]") ) 
+          statistic = list(all_continuous() ~ "{mean} ({sd}) [{min}-{max}]") )  %>% 
+  as_gt() %>% 
+  tab_header(title="Major Parties: Counterproposal Difference by Year")
+
+propmatch.df %>% 
+  filter(actortype %in% c("major"), win_section8 | unanimous_creator) %>%
+  select("score_difference","split_difference", "competitive_difference", "population_difference", "win_difference","year","proposer_win_difference") %>%
+  tbl_summary(by=year,type = list(everything() ~ "continuous"),
+          statistic = list(all_continuous() ~ "{mean} ({sd}) [{min}-{max}]") )  %>% 
+  as_gt() %>% 
+  tab_header(title="Unanimous Proposals: Difference by Year (Major Parties) ")
+
+
+propmatch.df  %>% 
+  filter(actortype %in% c("major","minor")) %>%
+  GGally::ggpairs(
+    columns=c("score_difference","split_difference", "competitive_difference", "population_difference", "win_difference","proposer_win_difference"), 
+                   aes(color=actortype))
 
 
 ```

@@ -110,11 +110,13 @@ planProcessing.df %<>% bind_rows(pri_gerry.tbl,.)
 
 planProcessing.df %>% rowwise() %>% ## RETURN VALUE FROM LOCAL BLOCK
     mutate( plan_2015 = list(standardizePlan(plan,edon,votes.2015.df)),
-            plan_2018 = list(standardizePlan(plan,edon,votes.2018.df))
+            plan_2018 = list(standardizePlan(plan,edon,votes.2018.df)),
+            plan_2012 = list(standardizePlan(plan,edon,votes.2012.df)),
+            
     ) %>% ungroup() 
 }) 
 
-vars.srclist <- c("plan_2015","plan_2018")
+vars.srclist <- c("plan_2015","plan_2018","plan_2012")
 
 ## BEGIN LOCAL BLOCK
 planProcessing.df<- local({ 
