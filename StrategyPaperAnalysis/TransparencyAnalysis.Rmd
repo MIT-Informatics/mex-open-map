@@ -1269,6 +1269,15 @@ counterprop.df <- propmatch.df %>% filter(actor=="PAN") %>% rowwise() %>% mutate
 write_excel_csv(counterprop.df,file="PAN_counterproposals.csv")
 
 
+
+yuc.df <- propmatch.df %>% filter(tla=="yuc") %>% rowwise() %>% mutate(creators=paste(collapse=",",unlist(creators)))
+
+write_excel_csv(counterprop.df,file="yuc_counterproposals.csv")
+
+
+
+View(counterprop.df)
+
 ```
 ## Municipality Analysis
 ```{r municipality-demographic}
