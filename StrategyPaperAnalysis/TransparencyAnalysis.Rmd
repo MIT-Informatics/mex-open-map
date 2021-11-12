@@ -248,7 +248,7 @@ rm(ex_11_13, ex_11_17)
 ```
 
 ## Algorithmic Score Efficency 
-```{r}
+```{r, best-scoring}
 efficiency.df <- contestSum.df %>% rowwise() %>% mutate(efficiency=(1-(phase1_start-lowestvalid)/lowestvalid)*100) %>% select(year,edon,efficiency) %>% mutate(year=as.factor(year))
 efficiency.df %>% group_by(year) %>% summarize(min_efficiency=min(efficiency),median_efficiency=median(efficiency), mean_efficiency=mean(efficiency))
 efficiency.df %>% ggplot(aes(efficiency))+geom_histogram(bins=30)+facet_grid(rows=vars(year))
@@ -257,17 +257,32 @@ rm(efficiency.df)
 
 planProp.df %>% filter(best_plan) %>% 
   group_by(creator_coded,year) %>% summarise(count=n(),percent=count/32) %>% 
-  gt() %>% 
-  tab_header(title="Best Scoring Plans by Creator") %>%
-  cols_label( "creator_coded" = "Actor","count"="","percent"="" ) %>%
-  fmt_percent(vars(percent)) %>%
-   data_color (
-      columns=vars(percent), 
-      colors = scales::col_numeric( 
-      palette = c( "white","red"), 
-      domain = c(0,1) ) 
-      ) %>%
-  tab_source_note(
+ungroup() %>%
+  left_join(by=c("creator_coded"="actor"),actors.df) %>%
+  mutate( actortype=case_when(
+    as.character(creator_coded)=="ALGORITHM" ~ "admin",
+    as.character(creator_coded)=="Coalition" ~ "multiple",
+        as.character(creator_coded)=="UNANIMOUS" ~ "multiple",
+    TRUE ~ as.character(actortype)
+  )) %>%
+  pivot_wider(names_from="year", values_from=c("count","percent"),values_fill=0) %>%
+  relocate(count_2013,percent_2013,count_2017,percent_2017) %>%
+  group_by(actortype) %>%
+  gt(rowname_col="creator_coded") %>%
+   tab_header(title="Best Scoring Plans by Creator") %>%
+   cols_label( "creator_coded" = "Actor", "count_2013"="Best", "percent_2013"="",
+               "count_2017"="Best","percent_2017"="") %>%
+  tab_spanner(columns=c("count_2013","percent_2013"),label="2013") %>%
+    tab_spanner(columns=c("count_2017","percent_2017"),label="2017") %>%
+
+    fmt_percent(columns=starts_with("percent")) %>%
+  data_color (
+       columns=starts_with("percent"), 
+       colors = scales::col_numeric( 
+       palette = c( "white","red"), 
+         domain = c(0,1) ) 
+     ) %>% 
+   tab_source_note(
     source_note = "Note: Creators refers to initial plan creators, others may have joined in later rounds." ) %>%
   gt_theme_538() 
 
@@ -372,19 +387,36 @@ contestSum.df %>% group_by(year) %>%
     gt_theme_538() 
 
 planProp.df %>% filter(win_final) %>% 
-  group_by(creator_coded,year) %>% summarize(wins=n(),percent=wins/32) %>%
-  gt() %>% tab_header(title="Winning Plans by Creator") %>%
-   cols_label( "creator_coded" = "Actor", "year"="","percent"="%") %>%
-   fmt_percent(4) %>%
+  group_by(creator_coded,year) %>% summarize(wins=n(),percent=wins/32) %>% 
+  ungroup() %>%
+  left_join(by=c("creator_coded"="actor"),actors.df) %>%
+  mutate( actortype=case_when(
+    as.character(creator_coded)=="ALGORITHM" ~ "admin",
+    as.character(creator_coded)=="Coalition" ~ "multiple",
+        as.character(creator_coded)=="UNANIMOUS" ~ "multiple",
+    TRUE ~ as.character(actortype)
+  )) %>%
+  pivot_wider(names_from="year", values_from=c("wins","percent"),values_fill=0) %>%
+  relocate(wins_2013,percent_2013,wins_2017,percent_2017) %>%
+  group_by(actortype) %>%
+  gt(rowname_col="creator_coded") %>%
+   tab_header(title="Winning Plans by Creator") %>%
+   cols_label( "creator_coded" = "Actor", "wins_2013"="wins", "percent_2013"="",
+               "wins_2017"="wins","percent_2017"="") %>%
+  tab_spanner(columns=c("wins_2013","percent_2013"),label="2013") %>%
+    tab_spanner(columns=c("wins_2017","percent_2017"),label="2017") %>%
+
+    fmt_percent(columns=starts_with("percent")) %>%
   data_color (
-      columns=4, 
-      colors = scales::col_numeric( 
-      palette = c( "white","red"), 
-        domain = c(0,1) ) 
-    ) %>% 
+       columns=starts_with("percent"), 
+       colors = scales::col_numeric( 
+       palette = c( "white","red"), 
+         domain = c(0,1) ) 
+     ) %>% 
   tab_source_note(
     source_note = "Note: Creators refers to initial plan creators, others may have joined in later rounds." ) %>%
   gt_theme_538()
+
 
 ```
 
@@ -409,7 +441,7 @@ res_outcomes_party.df <-
 res_outcomes_party.df %<>% bind_rows(
     planProp.df %>% group_by(year,creator_coded) %>% summarise(
       events = sum( win_violation ) , 
-      denominator = 32, type = "Won in Violation of Rules" , category="compliance"
+      denominator = 32, type = "WinViolation" , category="compliance"
   )
 )
 
@@ -418,18 +450,54 @@ res_outcomes_party.df %<>% rowwise() %>% mutate(percent=events/denominator)
 res_outcomes_party.df %>% 
   group_by(year,creator_coded) %>% relocate(type) %>% select(-denominator,-category) %>%
     filter(sum(events)>0) %>%
-    gt() %>% 
-    cols_label( percent="%", "type"="","events"="" ) %>%
-    fmt_percent(columns="percent") %>%
+    ungroup() %>%
+    left_join(by=c("creator_coded"="actor"),actors.df) %>%
+   mutate( actortype=case_when(
+    as.character(creator_coded)=="ALGORITHM" ~ "admin",
+    as.character(creator_coded)=="Coalition" ~ "multiple",
+        as.character(creator_coded)=="UNANIMOUS" ~ "multiple",
+    TRUE ~ as.character(actortype)
+  )) %>%
+    pivot_wider(names_from=c("year","type"), values_from=c("events","percent"),values_fill=0) %>%
+  relocate(creator_coded, 
+           events_2013_Invalidated,percent_2013_Invalidated,
+           events_2017_Invalidated,percent_2017_Invalidated,
+           events_2013_WinViolation,percent_2013_WinViolation,
+           events_2017_WinViolation,percent_2017_WinViolation,
+           ) %>%
+      group_by(actortype) %>%
+  gt(rowname_col="creator_coded") %>%
+    cols_label( events_2013_Invalidated = "2013", 
+                events_2017_Invalidated = "2017",
+                events_2013_WinViolation = "2013",
+                events_2017_WinViolation = "2017",
+                percent_2013_Invalidated = "", 
+                percent_2017_Invalidated = "",
+                percent_2013_WinViolation = "",
+                percent_2017_WinViolation = "",
+                ) %>%
     tab_header(title="Exceptions by Creator") %>%
     tab_source_note( source_note = "Note: Denominator for wins is 32 states/year. Denominator for invalidations is total proposals by that party." ) %>%
-    data_color (
-      columns = vars(percent), 
-      colors = scales::col_numeric( 
-      palette = c( "white","red"), 
-        domain = c(0,.2) ) 
-    ) %>% 
+ fmt_percent(columns=starts_with("percent")) %>%
+  data_color (
+       columns=starts_with("percent"), 
+       colors = scales::col_numeric( 
+       palette = c( "white","red"), 
+         domain = c(0,.2) ) 
+     ) %>%
+    tab_spanner(columns=c("events_2013_WinViolation",
+                          "percent_2013_WinViolation",
+                          "events_2017_WinViolation",
+                          "percent_2017_WinViolation"
+                         ) , label="Won in Violation of Rules") %>%
+    tab_spanner( columns=c("events_2013_Invalidated", 
+                          "percent_2013_Invalidated",
+                          "events_2017_Invalidated",
+                          "percent_2017_Invalidated" ),
+                           label="Invalidated") %>%
     gt_theme_538() 
+
+
 
 ```
 
@@ -1172,34 +1240,39 @@ counterScore <- function(p1,p2,proposer) {
     rowwise() %>%
     mutate(
       proposer_win_margin = ifelse( is.null(win_margins) , NA_real_ , 
-        (win_margins %>% filter(win_actor==proposer) %>% pull(win_margin) %>% mean(na.rm=TRUE) )
+                                    (win_margins %>% filter(win_actor==proposer) %>% pull(win_margin) %>% mean(na.rm=TRUE) )
       ),
       proposer_win_seat = ifelse( is.null(win_margins) , NA_real_ , 
-        (win_margins %>% filter(win_actor==proposer) %>% 
-           pull(win_margin) %>% na.omit() %>% length() )
+                                  (win_margins %>% filter(win_actor==proposer) %>% 
+                                     pull(win_margin) %>% na.omit() %>% length() )),
+     comp_margin = ifelse( is.null(win_margins) , NA_real_ , 
+            (win_margins %>% filter(win_margin<.02) %>% pull(win_margin) %>% mean(na.rm=TRUE) %>% 
+               replace_na(0))
       )
-      ) %>%
+    ) %>%
     mutate(proposer_win_margin=replace_na(proposer_win_margin,0)) %>%
     select(-tla,-planid,-win_margins)
-   diff_cols<-rows.tib[1,]-rows.tib[2,]
-   diff_cols %<>%   rename(score_difference=official_score, 
-         split_difference = municiple_splits, 
-         win_difference = average_winning_margins,
-         population_difference = worst_population_deviation,
-         competitive_difference = competitive_districts,
-         proposer_win_difference=proposer_win_margin,
-         proposer_seat_difference = proposer_win_seat) %>%
-  mutate(proposer_composite_difference = 100 * proposer_seat_difference + 10 * competitive_difference + proposer_win_difference)
-   res <- bind_cols(diff_cols, rows.tib[1,c("proposer_win_margin","proposer_win_seat","competitive_districts")])
-   res
+  diff_cols<-rows.tib[1,]-rows.tib[2,]
+  diff_cols %<>%   rename(score_difference=official_score, 
+                          split_difference = municiple_splits, 
+                          win_difference = average_winning_margins,
+                          population_difference = worst_population_deviation,
+                          competitive_difference = competitive_districts,
+                          competitive_margin_difference= comp_margin,
+                          proposer_win_difference=proposer_win_margin,
+                          proposer_seat_difference = proposer_win_seat) %>%
+    mutate(proposer_composite_difference = 1000 * proposer_seat_difference + 100 * competitive_difference -  10*competitive_difference + proposer_win_difference)
+  res <- bind_cols(diff_cols, rows.tib[1,c("proposer_win_margin","proposer_win_seat","competitive_districts")])
+  res
 }
 
 #debug(counterScore)
 
-propmatch.df <- proptrans.df %>% 
+propmatchf.df <- proptrans.df %>% 
   rowwise() %>%
-  filter(!is.null(plan),PROPOSED==TRUE, stage %in% c(2,4), VALIDPLAN==TRUE) %>%
-  select(planid,year,edon,stage,actor,actortype,tla) %>%
+  mutate(hasplan = !is.null(plan)) %>%
+  filter(PROPOSED==TRUE, stage %in% c(2,4), VALIDPLAN==TRUE) %>%
+  select(planid,year,edon,stage,actor,actortype,tla,hasplan) %>%
   mutate(previous_stage = stage-1) %>% 
   ungroup() %>%
   left_join(by=c("year","edon","previous_stage"),
@@ -1207,6 +1280,11 @@ propmatch.df <- proptrans.df %>%
               rename(previous_id=planid, previous_stage=stage)) %>%
   select(-previous_stage)
 
+
+propmatch.df <- propmatchf.df %>%
+  rowwise() %>% 
+  filter(hasplan) %>%
+  ungroup()
 
 
 propmatch.df%<>% left_join(by="planid", planFull.df %>% select(planid,win_section8,unanimous_creator,creators))
@@ -1224,7 +1302,7 @@ library(gtsummary)
 propmatch.df %>% 
   filter(actortype %in% c("major","minor")) %>%
   mutate(actortype = fct_drop(actortype)) %>%
-  select("score_difference","split_difference", "competitive_difference", "population_difference", "win_difference","actortype", "proposer_win_difference", "proposer_seat_difference", "proposer_composite_difference") %>%
+  select("score_difference","split_difference", "competitive_difference", "population_difference", "win_difference","actortype", "proposer_win_difference", "proposer_seat_difference","competitive_margin_difference", "proposer_composite_difference") %>%
   tbl_summary(by=actortype,type = list(everything() ~ "continuous"),
           statistic = list(all_continuous() ~ "{mean} ({sd}) [{min}-{max}]") ) %>%
  as_gt() %>% 
@@ -1233,7 +1311,7 @@ propmatch.df %>%
 propmatch.df %>% 
   filter(actortype %in% c("major")) %>%
   mutate(actorf = fct_drop(actor)) %>%
-  select("score_difference","split_difference", "competitive_difference", "population_difference", "win_difference","actorf", "proposer_win_difference",  "proposer_seat_difference", "proposer_composite_difference") %>%
+  select("score_difference","split_difference", "competitive_difference", "population_difference", "win_difference","actorf", "proposer_win_difference",  "proposer_seat_difference","competitive_margin_difference", "proposer_composite_difference",) %>%
   tbl_summary(by=actorf,type = list(everything() ~ "continuous"),
           statistic = list(all_continuous() ~ "{mean} ({sd}) [{min}-{max}]") ) %>%
  as_gt() %>% 
@@ -1251,7 +1329,7 @@ propmatch.df %>%
 
 propmatch.df %>% 
   filter(actortype %in% c("major"), win_section8 | unanimous_creator) %>%
-  select("score_difference","split_difference", "competitive_difference", "population_difference", "win_difference","year","proposer_win_difference", "proposer_seat_difference", "proposer_composite_difference") %>%
+  select("score_difference","split_difference", "competitive_difference", "population_difference", "win_difference","year","proposer_win_difference", "proposer_seat_difference", "competitive_margin_difference", "proposer_composite_difference",) %>%
   tbl_summary(by=year,type = list(everything() ~ "continuous"),
           statistic = list(all_continuous() ~ "{mean} ({sd}) [{min}-{max}]") )  %>% 
   as_gt() %>% 
@@ -1269,16 +1347,50 @@ counterprop.df <- propmatch.df %>% filter(actor=="PAN") %>% rowwise() %>% mutate
 write_excel_csv(counterprop.df,file="PAN_counterproposals.csv")
 
 
-
 yuc.df <- propmatch.df %>% filter(tla=="yuc") %>% rowwise() %>% mutate(creators=paste(collapse=",",unlist(creators)))
 
-write_excel_csv(counterprop.df,file="yuc_counterproposals.csv")
+write_excel_csv(yuc.df,file="yuc_counterproposals.csv")
 
-
-
-View(counterprop.df)
 
 ```
+
+```{r preference-reversals}
+
+
+# create proposal table
+planset <- function(previous_id,planid, edon, stage, year) {
+   r <- propmatch.df %>% filter(edon==1, stage=="4",year=="2013")  %>% pull(planid)
+   r <- setdiff(r,planid)
+   r <- append(r,previous_id)
+   expand.grid(x=planid,y=r)
+}
+
+propseq.tib <- propmatchf.df %>% select(planid,year,edon,stage,actor,actortype,tla,previous_id)
+propseq.tib %<>% rowwise() %>%
+  mutate( planset = list(planset(previous_id, planid,edon,stage,year)) ) %>%
+  ungroup()
+propseq.tib <- inner_join(propseq.tib %>% filter(stage==2),propseq.tib %>% filter(stage==4),
+          by=c("year"="year","actor"="actor","edon"="edon","tla"="tla","actortype"="actortype"))
+propseq.tib %<>% filter(planid.x != planid.y)
+propseq.tib %<>% group_by(year,edon,actor) %>% slice_head(n=1) %>% ungroup()
+
+# create alternative scores
+
+reversalcheck <- function(ps1,ps2) {
+  r <- inner_join(ps1,ps2, by = c("x"="y","y"="x"))
+  nrow(r) > 0
+}
+
+#debug(reversalcheck)
+propseq.tib %<>% rowwise() %>%
+  mutate(reversal=reversalcheck(planset.x,planset.y))
+
+proprev.tib <- propseq.tib %>% filter(reversal)
+
+```
+
+
+
 ## Municipality Analysis
 ```{r municipality-demographic}
 
@@ -1578,7 +1690,6 @@ nullplans %>% gt()
 
 ```{r}
 ghost.tbl  <- proptrans.df %>% filter(!is.na(PROPOSED) & !PROPOSED & hasplan )
-View(ghost.tbl)
 
 # check seccion count
 ```
