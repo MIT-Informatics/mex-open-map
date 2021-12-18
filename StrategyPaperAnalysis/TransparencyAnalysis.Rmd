@@ -1684,7 +1684,53 @@ nullplans<- left_join(nullids,propfull.df)
 nullplans %>% gt()
 
 ```
+# Yucatan local election prediction analysis
 
+```{r}
+yuc_returns.tbl <- votes.2015.df %>% filter(edon==31) %>% select("seccion","actor","votes") %>% rename(votes_2015=votes)
+
+yuc_returns.tbl %<>% left_join(
+  votes.2018.df %>% filter(edon==31) %>% select("seccion","actor","votes") %>% rename(votes_2018=votes),
+  by=c("seccion"="seccion","actor"="actor"))
+
+yuc_local.tbl <- read_csv("mxDistritos-data/DiputadosLocalMR2015YucatanSeccion.csv") %>% 
+  select("SECCION", starts_with("PAN"), starts_with("PRI"), starts_with("PRD"), starts_with("PVEM"),
+         starts_with("PT"), starts_with("PH"), starts_with("ES"), starts_with("MORENA"))  %>%
+         mutate(across(everything(), ~replace_na(.x,0))) %>%
+        rowwise() %>% 
+        mutate( PAN=sum(c_across(starts_with("PAN"))), 
+                PRI=sum(c_across(starts_with("PRI"))), 
+                PRD=sum(c_across(starts_with("PRD")))) %>%
+        select("SECCION","PAN","PRI","PRD","PVEM","PT","PH","ES","MORENA") %>%
+        rename("seccion"="SECCION") %>% 
+        pivot_longer(c("PAN","PRI","PRD","PVEM","PT","PH","ES","MORENA"),names_to="actor", values_to="votes_local_2015")
+
+yuc_returns.tbl %<>% 
+  left_join(yuc_local.tbl, by=c("seccion","actor")) %>%
+  mutate(votes_local_2015=replace_na(votes_local_2015, 0)) %>%
+   group_by(seccion) %>%
+  mutate(across(starts_with("vote"), .names="{.col}_p",  ~ (.x/sum(.x))) ) %>%
+  ungroup()
+
+library("corrr")
+
+yuc_returns.tbl %>% 
+  filter(actor %in% c("PAN")) %>%
+  select(-seccion,-actor) %>%
+  correlate()
+
+yuc_returns.tbl %>% 
+  filter(actor %in% c("PRI")) %>%
+  select(-seccion,-actor) %>%
+  correlate()
+
+yuc_returns.tbl %>% 
+  filter(actor %in% c("MORENA")) %>%
+  select(-seccion,-actor) %>%
+  correlate()
+
+
+```
 
 # Debug
 
