@@ -262,6 +262,9 @@ planProcessing.df  %<>% rowwise() %>% mutate( across(
   c({{ vars.winmargins }}), 
   list(
     compCount = ~scoreComp(.x),
+    compCount4 = ~scoreComp(.x,.04),
+    compCount8 = ~scoreComp(.x,.08),
+    
     actorWins = ~list(scoreWins(.x))
    # muniDominate = ~list(scoreMuniDominate(.x))
   ))) 
