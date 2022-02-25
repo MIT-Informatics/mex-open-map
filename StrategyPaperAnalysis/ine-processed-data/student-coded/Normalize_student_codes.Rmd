@@ -1,0 +1,69 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+```{r load}
+c1.tbl <- read_csv("2017Nat_1.csv")
+c2.tbl <- read_csv("2017Nat_2.csv")
+```
+```{r basics}
+dim(c1.tbl)
+dim(c2.tbl)
+colnames(c1.tbl)
+colnames(c2.tbl)
+c1.tbl %>% glimpse()
+c2.tbl %>% glimpse()
+
+```
+
+
+```{r overall-checks}
+
+dplyr::all_equal(c1.tbl,c2.tbl,
+                 ignore_col_order = TRUE,
+                 ignore_row_order=TRUE,
+                 convert=TRUE)
+```
+
+```{r duplicate-check}
+c1.tbl %>% group_by(edon,stage,actor,govlevel) %>% count(sort=TRUE) %>% filter(n>1)
+c2.tbl %>% group_by(edon,stage,actor,govlevel) %>% count(sort=TRUE) %>% filter(n>1)
+
+c2_dedup.tbl <- c2.tbl %>% group_by(edon,stage,actor,govlevel) %>%  group_by(edon,stage,actor,govlevel) %>% slice_head(n=1) 
+
+c2_dups <- c2.tbl %>% group_by(edon,stage,actor,govlevel) %>%  group_by(edon,stage,actor,govlevel) %>% slice(-1) 
+```
+
+
+```{r row-level-issues}
+library(diffdf)
+
+
+problems.ddf <- diffdf(c1.tbl , c2_dedup.tbl , suppress_warnings = F,
+       keys = c('edon','stage','actor','govlevel'))
+
+problems.ddf
+c1_bad.tbl <- diffdf_issuerows(c1.tbl,problems.ddf) %>% arrange(edon,stage,actor,govlevel)
+c2_bad.tbl <- bind_rows(diffdf_issuerows(c2.tbl,problems.ddf) 
+                        ,c2_dups) %>%  arrange(edon,stage,actor,govlevel)
+
+c1_bad.tbl
+c2_bad.tbl
+```
+
+```{r viz}
+library(diffobj)
+c1_bad.ln <- c1_bad.tbl %>% apply(1,paste,collapse=" ") %>% str_squish
+c2_bad.ln <- c2_bad.tbl %>% apply(1,paste,collapse=" ") %>% str_squish
+
+diffChr(c1_bad.ln,c2_bad.ln)
+
+
+```
+
