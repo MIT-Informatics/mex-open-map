@@ -33,11 +33,20 @@ dplyr::all_equal(c1.tbl,c2.tbl,
 
 ```{r duplicate-check}
 c1.tbl %>% group_by(edon,stage,actor,govlevel) %>% count(sort=TRUE) %>% filter(n>1)
+
+c1_dedup.tbl <- c1.tbl %>% group_by(edon,stage,actor,govlevel) %>%  group_by(edon,stage,actor,govlevel) %>% slice_head(n=1) 
+
+c1_dups <- c1.tbl %>% group_by(edon,stage,actor,govlevel) %>%  group_by(edon,stage,actor,govlevel) %>% slice(-1) 
+
+
 c2.tbl %>% group_by(edon,stage,actor,govlevel) %>% count(sort=TRUE) %>% filter(n>1)
 
 c2_dedup.tbl <- c2.tbl %>% group_by(edon,stage,actor,govlevel) %>%  group_by(edon,stage,actor,govlevel) %>% slice_head(n=1) 
 
 c2_dups <- c2.tbl %>% group_by(edon,stage,actor,govlevel) %>%  group_by(edon,stage,actor,govlevel) %>% slice(-1) 
+
+
+ 
 ```
 
 
@@ -45,11 +54,12 @@ c2_dups <- c2.tbl %>% group_by(edon,stage,actor,govlevel) %>%  group_by(edon,sta
 library(diffdf)
 
 
-problems.ddf <- diffdf(c1.tbl , c2_dedup.tbl , suppress_warnings = F,
+problems.ddf <- diffdf(c1_dedup.tbl , c2_dedup.tbl , suppress_warnings = F,
        keys = c('edon','stage','actor','govlevel'))
 
 problems.ddf
-c1_bad.tbl <- diffdf_issuerows(c1.tbl,problems.ddf) %>% arrange(edon,stage,actor,govlevel)
+c1_bad.tbl <- bind_rows(diffdf_issuerows(c1.tbl,problems.ddf) 
+                        ,c1_dups)  %>% arrange(edon,stage,actor,govlevel)
 c2_bad.tbl <- bind_rows(diffdf_issuerows(c2.tbl,problems.ddf) 
                         ,c2_dups) %>%  arrange(edon,stage,actor,govlevel)
 
