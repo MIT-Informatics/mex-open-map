@@ -261,7 +261,7 @@ vars.winmargins <- (vars.srclist %>% paste("_actors_winMargins",sep=""))
 planProcessing.df  %<>% rowwise() %>% mutate( across( 
   c({{ vars.winmargins }}), 
   list(
-    compCount = ~scoreComp(.x),
+    compCount2 = ~scoreComp(.x,.02),
     compCount4 = ~scoreComp(.x,.04),
     compCount8 = ~scoreComp(.x,.08),
     
@@ -370,7 +370,11 @@ planProcessing.df %<>%  rowwise() %>% mutate(
   )
 
 
+
+
 rm(el,vars.srclist)
+
+
 
 #Done:
 # Ghostplans -- INE system provides plan even if it was not submitted. Plan delivered is often the

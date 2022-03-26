@@ -630,7 +630,10 @@ source("PrepSeatScores.R",verbose=FALSE)
 ```
 
 ```{r}
-planFull.df <- left_join(planProp.df,planProcessing.df)
+planFull.df <- left_join(planProp.df,planProcessing.df %>% select(-plan_2015,-plan_2012,-plan_2018))
+planFull.df %<>% mutate(plan_2018_actors_winMargins_compCount=plan_2018_actors_winMargins_compCount2, 
+                        plan_2015_actors_winMargins_compCount=plan_2015_actors_winMargins_compCount2,
+                        plan_2012_actors_winMargins_compCount=plan_2012_actors_winMargins_compCount2)
 # add reapportionment flag
 reapportionedEdons <- c (7, 9, 11, 14, 15, 20, 21, 22, 23, 25, 28, 30)
 planFull.df %<>% rowwise() %>% mutate(reapportioned = edon %in% reapportionedEdons) %>% ungroup
@@ -639,48 +642,71 @@ Competitive plan analysis
 By Year
 ```{r, strategy-table-5}
 # strategy table 5
-comp.tbl <- NULL
-comp.tbl %<>% bind_rows(
-  planFull.df %>% filter(win_final) %>% 
-  group_by(year) %>% 
-  summarize(
-    scenario="winner",
-    comp_2015=sum(plan_2015_actors_winMargins_compCount,na.rm=TRUE), 
-    comp_2018=sum(plan_2018_actors_winMargins_compCount,na.rm=TRUE), 
-  )
-)
-comp.tbl %<>% bind_rows(
-  planFull.df %>% filter(best_nonmissing) %>% 
-  group_by(year) %>% 
-  summarize(
-    scenario="best",
-    comp_2015=sum(plan_2015_actors_winMargins_compCount,na.rm=TRUE), 
-    comp_2018=sum(plan_2018_actors_winMargins_compCount,na.rm=TRUE), 
-  )
-)
 
-comp.tbl %<>% bind_rows(
-  planFull.df %>% filter(first_appeared==1) %>% 
-  group_by(year) %>% 
-  summarize(
-    scenario="algorithm",
-    comp_2015=sum(plan_2015_actors_winMargins_compCount,na.rm=TRUE), 
-    comp_2018=sum(plan_2018_actors_winMargins_compCount,na.rm=TRUE)
+makeCompetivenessTable<-function(margin=2) {
+  comp.tbl <- NULL
+  v2015 = str2lang(paste0("plan_2015_actors_winMargins_compCount",margin))
+  v2018 = str2lang(paste0("plan_2018_actors_winMargins_compCount",margin)) 
+  comp.tbl %<>% bind_rows(
+    planFull.df %>% filter(win_final) %>% 
+      group_by(year) %>% 
+      summarize(
+        scenario="winner",
+        comp_2015=sum( {{v2015}} ,na.rm=TRUE), 
+        comp_2018=sum( {{v2018}} ,na.rm=TRUE), 
+      )
   )
-)
-
-comp.tbl %<>% bind_rows(
-  planProcessing.df %>% filter(str_starts(planid,"base")) %>% 
-    mutate(year=2004) %>%
-   group_by(year) %>% 
-  summarize(
-    scenario="status quo",
-    comp_2015=sum(plan_2015_actors_winMargins_compCount,na.rm=TRUE), 
-    comp_2018=sum(plan_2018_actors_winMargins_compCount,na.rm=TRUE)
+  
+  comp.tbl %<>% bind_rows(
+    planFull.df %>% filter(best_nonmissing) %>%
+      group_by(year) %>%
+      summarize(
+        scenario="best",
+        comp_2015=sum(  {{v2015}} ,na.rm=TRUE),
+        comp_2018=sum(  {{v2018}} ,na.rm=TRUE),
+      )
   )
-)
 
-comp.tbl %>% group_by(year) %>% gt()
+  comp.tbl %<>% bind_rows(
+    planFull.df %>% filter(first_appeared==1) %>%
+      group_by(year) %>%
+      summarize(
+        scenario="algorithm",
+        comp_2015=sum( {{v2015}} ,na.rm=TRUE),
+        comp_2018=sum( {{v2018}} ,na.rm=TRUE)
+      )
+  )
+
+  comp.tbl %<>% bind_rows(
+    planProcessing.df %>% filter(str_starts(planid,"base")) %>%
+      mutate(year=2004) %>%
+      group_by(year) %>%
+      summarize(
+        scenario="status quo",
+        comp_2015=sum( {{v2015}} ,na.rm=TRUE),
+        comp_2018=sum( {{v2018}} ,na.rm=TRUE)
+      )
+  )
+  
+  comp.tbl %>% mutate(margin=margin)
+  
+
+}
+
+
+cmp2.tbl %>% group_by(year) %>% gt() %>% 
+  cols_hide("margin")
+
+
+makeCompetivenessTable(margin=2) %>% 
+  group_by(year) %>% gt() %>% cols_hide("margin") %>% tab_header("Competitive Seats under Multiple scenarios") %>% tab_source_note(paste0("Margin = ",2,"%"))
+
+makeCompetivenessTable(margin=4) %>% 
+  group_by(year) %>% gt() %>% cols_hide("margin") %>% tab_header("Competitive Seats under Multiple scenarios") %>% tab_source_note(paste0("Margin = ",4,"%"))
+
+makeCompetivenessTable(margin=4) %>% 
+  group_by(year) %>% gt() %>% cols_hide("margin") %>% tab_header("Competitive Seats under Multiple scenarios") %>% tab_source_note(paste0("Margin = ",8,"%"))
+
 
 ```
 Competitive plan analysis

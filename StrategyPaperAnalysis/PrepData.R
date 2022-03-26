@@ -132,3 +132,19 @@ for (i in reprows) {
 }
 rm(i,e,p)
 propfull.df[badrows,"plan"] <- NA
+
+# integrate student entered official scores
+ineScoreDetails.tib <- 
+  read_csv("ine-processed-data/2017_INE_score_plans.csv") %>%
+  rowwise() %>% 
+  mutate(rscore=(round(`Cost Function`,digits=5)),year=2017) %>%
+  rename(off_splits=splits, off_compact = Compactness, off_indig=`Indigenous Districts`) %>%
+  select(starts_with("off_"),edon,year,rscore) %>% 
+  group_by(rscore) %>% 
+  slice_head(n=1) %>%
+  ungroup()
+
+propfull.df %<>% left_join( ineScoreDetails.tib,
+                            by = c("year"="year","edon"="edon","rscore"="rscore"))
+
+rm(ineScoreDetails.tib)

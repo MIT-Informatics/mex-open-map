@@ -77,3 +77,25 @@ diffChr(c1_bad.ln,c2_bad.ln)
 
 ```
 
+```{r check-corrected}
+# a separate check is that each plan with the same function should have same subscores
+ineScoreDetails.tib <- read_csv("../2017_INE_score_plans.csv")
+scoreCheck.tib <- ineScoreDetails.tib %>% 
+  group_by( `Population Deviation`, Compactness, `Violation Range`,`Indigenous Districts`, splits) %>% 
+  mutate(checkgrp=cur_group_id())
+
+#scoreCheck.tib %<>% group_by(`Cost Function`,checkgrp) %>% slice_head(n=1)
+
+grandcheck<- scoreCheck.tib %>% 
+  group_by(`Cost Function`) %>% 
+  summarize(chk_n= n_distinct(checkgrp)) %>% 
+  summarize(max(chk_n))  %>% pull
+
+# should be one
+
+grandcheck
+
+grandcheck ==1 
+```
+
+
