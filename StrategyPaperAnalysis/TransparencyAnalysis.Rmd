@@ -634,6 +634,7 @@ planFull.df <- left_join(planProp.df,planProcessing.df %>% select(-plan_2015,-pl
 planFull.df %<>% mutate(plan_2018_actors_winMargins_compCount=plan_2018_actors_winMargins_compCount2, 
                         plan_2015_actors_winMargins_compCount=plan_2015_actors_winMargins_compCount2,
                         plan_2012_actors_winMargins_compCount=plan_2012_actors_winMargins_compCount2)
+planFull.df %<>% left_join(by="planid", proptrans.df %>% group_by(planid) %>% slice_head(n=1) %>% select(starts_with("off_")) )
 # add reapportionment flag
 reapportionedEdons <- c (7, 9, 11, 14, 15, 20, 21, 22, 23, 25, 28, 30)
 planFull.df %<>% rowwise() %>% mutate(reapportioned = edon %in% reapportionedEdons) %>% ungroup
@@ -694,9 +695,6 @@ makeCompetivenessTable<-function(margin=2) {
 }
 
 
-cmp2.tbl %>% group_by(year) %>% gt() %>% 
-  cols_hide("margin")
-
 
 makeCompetivenessTable(margin=2) %>% 
   group_by(year) %>% gt() %>% cols_hide("margin") %>% tab_header("Competitive Seats under Multiple scenarios") %>% tab_source_note(paste0("Margin = ",2,"%"))
@@ -746,7 +744,11 @@ comp.tbl %<>% bind_rows(
 comp.tbl %<>% bind_rows(
   planProcessing.df %>% filter(str_starts(planid,"base")) %>% 
     mutate(year=2004) %>%
+    mutate(plan_2018_actors_winMargins_compCount=plan_2018_actors_winMargins_compCount2, 
+                        plan_2015_actors_winMargins_compCount=plan_2015_actors_winMargins_compCount2,
+                        plan_2012_actors_winMargins_compCount=plan_2012_actors_winMargins_compCount2) %>%
    group_by(year) %>% 
+    
   summarize(
     scenario="status quo",
     comp_2015=sum(plan_2015_actors_winMargins_compCount,na.rm=TRUE), 
@@ -1223,35 +1225,48 @@ validPlans.tbl  %<>%
          ) %>%
   ungroup()
 
-# validScores.tbl <- validPlans.tbl %>%
-#   select("planid","rscore","tla",
-#          "mean_win_2015","plan_2015_muniSplits","plan_2015_actors_winMargins_compCount",
-#          "plan_2015_districts_maxPopDev","plan_2015_actors_winMargins") %>% 
-#   rename(official_score=rscore, municiple_splits = plan_2015_muniSplits,
-#          competitive_districts = plan_2015_actors_winMargins_compCount,
-#          worst_population_deviation = plan_2015_districts_maxPopDev,
-#          average_winning_margins = mean_win_2015,
-#          win_margins = plan_2015_actors_winMargins
-#          )
 
 validScores.tbl <- validPlans.tbl %>%
   rename(official_score=rscore) %>%
   rowwise() %>%
   mutate(
-    municiple_splits = ifelse(year==2013, plan_2012_muniSplits, plan_2015_muniSplits ),
+    measured_splits = ifelse(year==2013, plan_2012_muniSplits, plan_2015_muniSplits ),
     competitive_districts = ifelse(year==2013, plan_2012_actors_winMargins_compCount,
                                    plan_2015_actors_winMargins_compCount ),
     worst_population_deviation = ifelse(year==2013, plan_2012_districts_maxPopDev, plan_2015_districts_maxPopDev ),
-    win_margins = ifelse(year==2013, list(plan_2012_actors_winMargins), list(plan_2015_actors_winMargins) )
- 
+    win_margins = ifelse(year==2013, list(plan_2012_actors_winMargins), list(plan_2015_actors_winMargins) ),
+    off_splits = off_splits,
+    off_indig = off_indig,
+    off_compact = off_compact,
+    municiple_splits = ifelse(is.na(off_splits),measured_splits,off_splits)
   ) %>% 
   select ("planid", "tla", "municiple_splits", "competitive_districts", 
-          "worst_population_deviation", "average_winning_margins", "win_margins","official_score") 
+          "worst_population_deviation", "average_winning_margins", "win_margins","official_score", starts_with("off_"), starts_with("diff_"), contains("lits")) %>% 
+  relocate("municiple_splits","off_splits")
 
 
 validScores.tbl %>% 
   select(-win_margins) %>%
   GGally::ggpairs( columns=c("official_score","municiple_splits", "competitive_districts", "worst_population_deviation", "average_winning_margins"))
+
+# diagnostic plot to compare different split calculationsV
+( validScores.tbl %>% ggplot(aes(x=off_splits,y=plan_2015_muniSplits)) + geom_point(alpha=.1) ) /
+  ( validScores.tbl %>% ggplot(aes(x=off_splits,y=plan_2012_muniSplits)) + geom_point(alpha=.1) ) /
+    ( validScores.tbl %>% ggplot(aes(x=off_splits,y=plan_2018_muniSplits)) + geom_point(alpha=.1) )
+
+# look at extreme difference
+planProcessing.df %>% filter(planid=="6.29757-21-2017") %>% select(plan_2015) -> splitcmp.df
+splitcmp.df <- splitcmp.df[[1,1]][[1]]
+
+ splitcmp.df %>% 
+    filter(!is.na(inegi)) %>%
+    group_by(district,inegi) %>%
+    slice_head(n=1) %>% 
+    ungroup() %>% 
+    select(district,inegi) %>% 
+    count(inegi) %>%
+    pull(n) 
+  
 
 
 ```
@@ -1266,13 +1281,31 @@ counterScore <- function(p1,p2,proposer) {
     rowwise() %>%
     mutate(
       proposer_win_margin = ifelse( is.null(win_margins) , NA_real_ , 
-                                    (win_margins %>% filter(win_actor==proposer) %>% pull(win_margin) %>% mean(na.rm=TRUE) )
+                                    (win_margins %>% 
+                                       filter(win_actor==proposer) %>%
+                                       pull(win_margin) %>%
+                                       mean(na.rm=TRUE) )
+      ),
+      proposer_win_margin_capped = ifelse( is.null(win_margins) , NA_real_ , 
+                   (win_margins %>% 
+                      filter(win_actor==proposer) %>% 
+                      pull(win_margin) %>% 
+                      pmin(.1) %>%
+                      mean(na.rm=TRUE) )
       ),
       proposer_win_seat = ifelse( is.null(win_margins) , NA_real_ , 
                                   (win_margins %>% filter(win_actor==proposer) %>% 
                                      pull(win_margin) %>% na.omit() %>% length() )),
-     comp_margin = ifelse( is.null(win_margins) , NA_real_ , 
-            (win_margins %>% filter(win_margin<.02) %>% pull(win_margin) %>% mean(na.rm=TRUE) %>% 
+    comp_margin = ifelse( is.null(win_margins) , NA_real_ , 
+            (win_margins %>% filter(win_margin<.02)  %>% 
+               pull(win_margin) %>% mean(na.rm=TRUE) %>% 
+               replace_na(0))
+      ),
+     pcomp_margin = ifelse( is.null(win_margins) , NA_real_ , 
+            (win_margins %>% filter(win_margin<.02)  %>% 
+               mutate( isp = win_actor==proposer) %>%
+               mutate( pwin_margin=ifelse(isp,win_margin,-1*win_margin)) %>%
+               pull(pwin_margin) %>% mean(na.rm=TRUE) %>% 
                replace_na(0))
       )
     ) %>%
@@ -1285,9 +1318,13 @@ counterScore <- function(p1,p2,proposer) {
                           population_difference = worst_population_deviation,
                           competitive_difference = competitive_districts,
                           competitive_margin_difference= comp_margin,
+                          proposer_competitive_margin_difference= pcomp_margin,
                           proposer_win_difference=proposer_win_margin,
-                          proposer_seat_difference = proposer_win_seat) %>%
-    mutate(proposer_composite_difference = 1000 * proposer_seat_difference + 100 * competitive_difference -  10*competitive_difference + proposer_win_difference)
+                          proposer_win_difference_capped=proposer_win_margin_capped,
+                          proposer_seat_difference = proposer_win_seat,
+                          compactness_difference =off_compact) %>%
+    mutate(proposer_composite_difference = 1000 * proposer_seat_difference + 100 * competitive_difference +   +10* proposer_win_difference_capped + proposer_competitive_margin_difference ) %>%
+select( ends_with("_difference"))
   res <- bind_cols(diff_cols, rows.tib[1,c("proposer_win_margin","proposer_win_seat","competitive_districts")])
   res
 }
@@ -1295,6 +1332,8 @@ counterScore <- function(p1,p2,proposer) {
 #debug(counterScore)
 
 propmatchf.df <- proptrans.df %>% 
+  ungroup() %>%
+  #slice_sample(n=50) %>%
   rowwise() %>%
   mutate(hasplan = !is.null(plan)) %>%
   filter(PROPOSED==TRUE, stage %in% c(2,4), VALIDPLAN==TRUE) %>%
@@ -1328,11 +1367,25 @@ library(gtsummary)
 propmatch.df %>% 
   filter(actortype %in% c("major","minor")) %>%
   mutate(actortype = fct_drop(actortype)) %>%
-  select("score_difference","split_difference", "competitive_difference", "population_difference", "win_difference","actortype", "proposer_win_difference", "proposer_seat_difference","competitive_margin_difference", "proposer_composite_difference") %>%
+  select("score_difference","split_difference", "competitive_difference","proposer_competitive_margin_difference", "population_difference", "win_difference","actortype", "proposer_win_difference", "proposer_seat_difference","competitive_margin_difference", "proposer_composite_difference") %>%
   tbl_summary(by=actortype,type = list(everything() ~ "continuous"),
           statistic = list(all_continuous() ~ "{mean} ({sd}) [{min}-{max}]") ) %>%
  as_gt() %>% 
   tab_header(title="Counterproposal Differences by Actor Type")
+
+propmatch.df %>% 
+  filter(actortype %in% c("major","minor")) %>%
+  mutate(actortype = fct_drop(actortype)) %>%
+  select( "actortype", "competitive_difference", "proposer_win_difference", "proposer_seat_difference","proposer_competitive_margin_difference", "proposer_composite_difference") %>%
+  relocate("proposer_seat_difference","competitive_difference","proposer_win_difference","proposer_competitive_margin_difference","proposer_composite_difference") %>% 
+  tbl_summary(by=actortype,
+              type = list(everything() ~ "continuous"),
+          statistic = list(all_continuous() ~ "{mean} ({sd}) [{min}-{max}]"),
+          missing="no",
+          label = list("proposer_seat_difference" ~ "Proposer Seat Change","competitive_difference" ~ "Competitive Seat Change","proposer_win_difference"~ "Proposer Win Margin Change","proposer_competitive_margin_difference"~"Proposer Competive Margin Change" ,"proposer_composite_difference" ~ "Total Proposer Score Change")
+          ) %>%
+ as_gt() %>% 
+  tab_header(title="Counterproposal Differences by Actor Type - Theoretical Predictors")
  
 propmatch.df %>% 
   filter(actortype %in% c("major")) %>%
@@ -1355,7 +1408,8 @@ propmatch.df %>%
 
 propmatch.df %>% 
   filter(actortype %in% c("major"), win_section8 | unanimous_creator) %>%
-  select("score_difference","split_difference", "competitive_difference", "population_difference", "win_difference","year","proposer_win_difference", "proposer_seat_difference", "competitive_margin_difference", "proposer_composite_difference",) %>%
+  select("score_difference","split_difference", "competitive_difference", "population_difference", "win_difference","year","proposer_win_difference", "proposer_seat_difference", "competitive_margin_difference", "proposer_composite_difference",
+         "compactness_difference") %>%
   tbl_summary(by=year,type = list(everything() ~ "continuous"),
           statistic = list(all_continuous() ~ "{mean} ({sd}) [{min}-{max}]") )  %>% 
   as_gt() %>% 
