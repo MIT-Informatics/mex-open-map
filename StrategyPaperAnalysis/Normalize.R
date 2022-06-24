@@ -26,7 +26,7 @@ normalizeEvent<-function(input.df) {
   # reassemble 
   tmpspread.df<-spread(tmpgather.df,key="vtype",value="value")
   # standardize dummy variables
-  tmpspread.df["PROPOSED"]<-!is.na(tmpspread.df["SCORE"])
+  tmpspread.df["PROPOSED"]<-!is.na(tmpspread.df[["SCORE"]])
   if (!any(names(tmpspread.df)=="INVALID")) {
     tmpspread.df["INVALID"]<-NA
   }

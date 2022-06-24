@@ -25,7 +25,7 @@ actors.df <- structure(list(actor = structure(c(2L, 7L, 9L, 10L, 11L, 13L,
 source("Normalize.R") # reads in Pre-Normalized IFE tables 
 ## Ruling party by year and state: grule.df , controlByWindow() helper function
 source("RulingParty.R") # Bring in ruling party db
-## Integrate proposed plans: profull.df
+## Integrate proposed plans: propfull.df
 source("integrateMxdistritos.R")
 rm(proposals.df)
 propfull.df %<>% left_join(actors.df)

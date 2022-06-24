@@ -62,7 +62,7 @@ contestSum.df %<>% rowwise() %>% mutate(INEchanged_phase3 = !phase3_win %in% c(p
 contestSum.df %<>% rowwise() %>% mutate(INEchanged_final = !final_win %in% c(phase4_plans,phase3_win))
 
 # code for best scores
-contestSum.df %<>% rowwise() %>% mutate(lowestvalid = min(phase1_start,phase2_plans,phase3_win,phase4_plans),phase2_lowest = min(phase1_start,phase2_plans),final_lowest=min(phase3_win,phase4_plans),best_lost=final_win!=lowestvalid)
+contestSum.df %<>% rowwise() %>% mutate(lowestvalid = min(phase1_start,phase2_plans,phase3_win,phase4_plans,final_win),phase2_lowest = min(phase1_start,phase2_plans),final_lowest=min(phase3_win,phase4_plans,final_win),best_lost=final_win!=lowestvalid)
 
 # code for sec8 & rules violations
 contestSum.df %<>% rowwise() %>% mutate(phase2_unanimous=(length(unique(phase2_plans_party))==1), final_unanimous=length(unique(phase4_plans_party))==1)
@@ -72,7 +72,18 @@ contestSum.df %<>% rowwise() %>% mutate( phase2_violation = ( phase2_notlow & !p
 ```
 ```{r}
 ## Create Plan Data Structure
- planProp.df <- proptrans.df %>% filter(!is.na(planid)) %>% group_by(planid) %>% summarize(stages=list(sort(unique(stage))),rscore=unique(rscore),edon=unique(edon),year=unique(year),VALIDPLAN=unique(VALIDPLAN),tla=unique(tla), hasplan=unique(hasplan))
+
+#planProp_old.df <- proptrans.df %>% filter(!is.na(planid)) %>% group_by(planid) %>% summarize(stages=list(sort(unique(stage))),rscore=unique(rscore),edon=unique(edon),year=unique(year),VALIDPLAN=unique(VALIDPLAN),tla=unique(tla), hasplan=unique(hasplan))
+
+planProp.df <-
+  proptrans.df %>% 
+  filter(!is.na(planid)) %>% 
+  group_by(planid) %>% 
+  mutate(stages=list(sort(unique(stage)))) %>%
+  select(stages,rscore,edon,year,VALIDPLAN,tla,hasplan) %>%
+  arrange(hasplan,VALIDPLAN,.by_group=TRUE) %>%
+  slice_tail(n=1)
+
 planProp.df %<>% rowwise() %<>% mutate(win_final=(5 %in% stages))
 planProp.df %<>% rowwise() %>% mutate(first_appeared=stages[[1]])
 
@@ -84,12 +95,11 @@ rm(tmpCreators)
 # fill in outcome characteristics
 planProp.df %<>% left_join( contestSum.df %>% select( year, edon, lowestvalid, phase2_lowest, final_lowest, phase2_unanimous, final_unanimous, final_section8, final_violation ))
 planProp.df %<>% mutate(unanimous_creator=(first_appeared==2 & phase2_unanimous) | (first_appeared==4 & final_unanimous) )
-planProp.df %<>% mutate( best_plan = ( rscore==lowestvalid & VALIDPLAN ))
+planProp.df %<>% mutate( best_plan = ( rscore==lowestvalid && VALIDPLAN ))
 
 planProp.df %<>% 
    group_by(year,edon) %>% 
-   filter(hasplan) %>% 
-   mutate(best_nonmissing_score=min(rscore)) %>% 
+   mutate(best_nonmissing_score=min(rscore[hasplan==TRUE])) %>% 
    rowwise() %>% mutate(best_nonmissing=(rscore==best_nonmissing_score)) %>%
    select(-best_nonmissing_score) %>% 
    ungroup()
@@ -160,6 +170,9 @@ gt_theme_538 <- function(data,...) {
     c(...)
   ) 
 }
+
+theme_set(theme_gray(base_size = 18))
+
 ```
 ## Third Party Actors
 *  All scored entries are in 2013
@@ -176,17 +189,33 @@ thirdparty.tab <- proptrans.df %>% group_by(year,actor2) %>% summarise (
 thirdparty.tab %>% 
   filter(grandtotal>0) %>%
   select(-grandtotal,-outside) %>%
-  gt()  %>%
-  cols_label( "actor2" = "Actor","missing"="Missing Plans","unscored"="Nonscored" ) %>%
-  tab_header(title="Undocumented Proposals") %>%
+  pivot_wider(names_from="year", values_from=c("missing","unscored"),values_fill=0) %>%
+  relocate(actor2,missing_2013,unscored_2013,missing_2017,unscored_2017) %>%
+   gt()  %>%
+  cols_label( "actor2" = "",
+              "missing_2013"="Missing Plans",
+              "missing_2017"="Missing Plans",
+               "unscored_2017"="Nonscored",
+              "unscored_2013"="Nonscored" ) %>%
+  tab_header(title="Undocumented proposals",
+             subtitle="Proposals that were  incompletely documented.") %>%
   tab_source_note(
-    source_note = "Note: Admin proposals do not include interventions during decision phase to change plans." ) %>%
+    source_note = "Note: Does not INE interventions to modify plans during decision phase." ) %>%
+  tab_spanner(columns=c("missing_2013","unscored_2013"),label="2013") %>%
+    tab_spanner(columns=c("missing_2017","unscored_2017"),label="2017") %>%
   data_color( 
-      columns = vars(missing,unscored), 
+      columns = c("missing_2013","missing_2017","unscored_2017","unscored_2013"), 
       colors = scales::col_numeric( 
       palette = c( "white","orange"), 
-        domain = c(0,7) 
+        domain = c(0,100) 
       )
+  ) %>% 
+   grand_summary_rows(
+    columns = c("missing_2013","missing_2017","unscored_2017","unscored_2013"),
+    fns = list(
+      'total (per year)' = ~sum(.)),
+    formatter = fmt_integer,
+    use_seps = FALSE
   ) %>% 
   gt_theme_538() 
 ```
@@ -269,9 +298,10 @@ ungroup() %>%
   relocate(count_2013,percent_2013,count_2017,percent_2017) %>%
   group_by(actortype) %>%
   gt(rowname_col="creator_coded") %>%
-   tab_header(title="Best Scoring Plans by Creator") %>%
-   cols_label( "creator_coded" = "Actor", "count_2013"="Best", "percent_2013"="",
-               "count_2017"="Best","percent_2017"="") %>%
+   tab_header(title="Best Scoring Plans", 
+              subtitle = "Best-scoring state plans created by each actor." ) %>%
+   cols_label( "creator_coded" = "Actor", "count_2013"="", "percent_2013"="",
+               "count_2017"="","percent_2017"="") %>%
   tab_spanner(columns=c("count_2013","percent_2013"),label="2013") %>%
     tab_spanner(columns=c("count_2017","percent_2017"),label="2017") %>%
 
@@ -282,6 +312,13 @@ ungroup() %>%
        palette = c( "white","red"), 
          domain = c(0,1) ) 
      ) %>% 
+    grand_summary_rows(
+    columns = c(count_2013,count_2017),
+    fns = list(
+      'total (per year)' = ~sum(.)),
+    formatter = fmt_integer,
+    use_seps = FALSE
+  ) %>% 
    tab_source_note(
     source_note = "Note: Creators refers to initial plan creators, others may have joined in later rounds." ) %>%
   gt_theme_538() 
@@ -333,14 +370,15 @@ res_events_grp.df %<>% bind_rows(
 res_events_grp.df %>% group_by(year) %>% summarize(
   type=type, 
   count=events,
-  percent=count/denominator,
+  percent=count/sum(count,na.rm=TRUE),
   ) %>%
   pivot_wider(names_from=year,values_from=c(count,percent))%>%
   relocate(type,count_2013,percent_2013,count_2017,percent_2017) %>%
   gt() %>%
     cols_label( percent_2013="" , percent_2017="", "type"="","count_2013"="","count_2017"="") %>%
     fmt_percent(columns=c("percent_2013","percent_2017")) %>%
-    tab_header(title="Process Exceptions") %>%
+    tab_header(title="Process Exceptions",
+               subtitle = "Sums the number of exception events by category.") %>%
     tab_spanner(
       label = "2013",
       columns = vars(count_2013, percent_2013)
@@ -349,13 +387,19 @@ res_events_grp.df %>% group_by(year) %>% summarize(
       label = "2017",
       columns = vars(count_2017, percent_2017)
     ) %>%
-    tab_source_note( source_note = "Note: Exceptions are suspect, but not necessarily illegal." ) %>%
     data_color (
       columns = vars(percent_2013,percent_2017), 
       colors = scales::col_numeric( 
       palette = c( "white","orange"), 
         domain = c(0,.25) ) 
     ) %>% 
+   grand_summary_rows(
+    columns = c(count_2013,count_2017),
+    fns = list(
+      'total exceptions (per year)' = ~sum(.)),
+    formatter = fmt_integer,
+    use_seps = FALSE
+  ) %>% 
     gt_theme_538() 
 ```
 
@@ -365,10 +409,15 @@ res_events_grp.df %>% group_by(year) %>% summarize(
 - Lower score won without unanimity
 - Section 8 won
 ```{r}
-contestSum.df %>% group_by(year) %>%     
+contestSum.df %>%
+  rowwise() %>%
+  mutate( algorithm_lost = final_win != phase1_start, 
+    any_unexpected = any(best_lost,final_violation,final_section8,
+                         )  ) %>%
+  group_by(year) %>%     
   summarize( 
     best_lost = sum(best_lost)/n(),
-    algorithm_lost = sum(final_win!=phase1_start)/n(),
+    algorithm_lost = sum(algorithm_lost)/n(),
     section8_won = sum(final_section8)/n(),
     rules_violation = sum(final_violation)/n(),
   ) %>% group_by(year) %>%
@@ -376,8 +425,9 @@ contestSum.df %>% group_by(year) %>%
     cols_label( algorithm_lost= "Algorithm  Lost", best_lost="Best Score Lost", 
                 section8_won="Unanimous - Not Best", rules_violation="No Agreement & Not Best") %>%
     fmt_percent(2:5) %>%
-    tab_header(title="Unexpected Winners") %>%
-    tab_source_note( source_note = "Note:N=32 per year." ) %>%
+    tab_header(title="Unexpected Winners",
+               subtitle="Percentage of all states, won in an unexpected way.") %>%
+    tab_source_note( source_note = "Note: Column totals do not sum up to 100% because each state can be unexpected in multiple categories." ) %>%
     data_color (
       columns=2:5, 
       colors = scales::col_numeric( 
@@ -400,9 +450,10 @@ planProp.df %>% filter(win_final) %>%
   relocate(wins_2013,percent_2013,wins_2017,percent_2017) %>%
   group_by(actortype) %>%
   gt(rowname_col="creator_coded") %>%
-   tab_header(title="Winning Plans by Creator") %>%
-   cols_label( "creator_coded" = "Actor", "wins_2013"="wins", "percent_2013"="",
-               "wins_2017"="wins","percent_2017"="") %>%
+   tab_header(title="Winning Plans",
+               subtitle = "Winning state plans created by each actor.") %>%
+   cols_label( "creator_coded" = "Actor", "wins_2013"="", "percent_2013"="",
+               "wins_2017"="","percent_2017"="") %>%
   tab_spanner(columns=c("wins_2013","percent_2013"),label="2013") %>%
     tab_spanner(columns=c("wins_2017","percent_2017"),label="2017") %>%
 
@@ -413,6 +464,13 @@ planProp.df %>% filter(win_final) %>%
        palette = c( "white","red"), 
          domain = c(0,1) ) 
      ) %>% 
+  grand_summary_rows(
+    columns = c(wins_2013,wins_2017),
+    fns = list(
+      'total (states)' = ~sum(.)),
+    formatter = fmt_integer,
+    use_seps = FALSE
+  ) %>% 
   tab_source_note(
     source_note = "Note: Creators refers to initial plan creators, others may have joined in later rounds." ) %>%
   gt_theme_538()
@@ -1367,7 +1425,8 @@ library(gtsummary)
 propmatch.df %>% 
   filter(actortype %in% c("major","minor")) %>%
   mutate(actortype = fct_drop(actortype)) %>%
-  select("score_difference","split_difference", "competitive_difference","proposer_competitive_margin_difference", "population_difference", "win_difference","actortype", "proposer_win_difference", "proposer_seat_difference","competitive_margin_difference", "proposer_composite_difference") %>%
+  select("score_difference","split_difference", "competitive_difference","proposer_competitive_margin_difference", "population_difference", "win_difference","actortype", "proposer_win_difference", "proposer_seat_difference","competitive_margin_difference", "proposer_composite_difference",
+          "compactness_difference") %>%
   tbl_summary(by=actortype,type = list(everything() ~ "continuous"),
           statistic = list(all_continuous() ~ "{mean} ({sd}) [{min}-{max}]") ) %>%
  as_gt() %>% 
