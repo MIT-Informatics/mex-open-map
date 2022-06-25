@@ -388,11 +388,11 @@ res_events_grp.df %>% group_by(year) %>% summarize(
       columns = vars(count_2017, percent_2017)
     ) %>%
     data_color (
-      columns = vars(percent_2013,percent_2017), 
-      colors = scales::col_numeric( 
-      palette = c( "white","orange"), 
-        domain = c(0,.25) ) 
-    ) %>% 
+       columns=starts_with("percent"), 
+       colors = scales::col_numeric( 
+       palette = c( "white","red"), 
+         domain = c(0,1) ) 
+     ) %>%
    grand_summary_rows(
     columns = c(count_2013,count_2017),
     fns = list(
@@ -412,29 +412,33 @@ res_events_grp.df %>% group_by(year) %>% summarize(
 contestSum.df %>%
   rowwise() %>%
   mutate( algorithm_lost = final_win != phase1_start, 
-    any_unexpected = any(best_lost,final_violation,final_section8,
+    any_unexpected = any(best_lost,final_violation,final_section8
                          )  ) %>%
   group_by(year) %>%     
   summarize( 
-    best_lost = sum(best_lost)/n(),
-    algorithm_lost = sum(algorithm_lost)/n(),
-    section8_won = sum(final_section8)/n(),
-    rules_violation = sum(final_violation)/n(),
+    any_unexpected = sum(any_unexpected),
+    any_percent = any_unexpected/n(),
+    best_lost = sum(best_lost),
+    algorithm_lost = sum(algorithm_lost),
+    section8_won = sum(final_section8),
+    rules_violation = sum(final_violation),
   ) %>% group_by(year) %>%
  gt() %>%
     cols_label( algorithm_lost= "Algorithm  Lost", best_lost="Best Score Lost", 
-                section8_won="Unanimous - Not Best", rules_violation="No Agreement & Not Best") %>%
-    fmt_percent(2:5) %>%
+                section8_won="Unanimous - Not Best", rules_violation="No Agreement & Not Best", any_percent = "(% of states)", any_unexpected="States with exceptions") %>%
+    fmt_percent("any_percent") %>%
+      tab_spanner(columns=c("best_lost","algorithm_lost","section8_won","rules_violation"),label="Exception Types") %>%
     tab_header(title="Unexpected Winners",
-               subtitle="Percentage of all states, won in an unexpected way.") %>%
-    tab_source_note( source_note = "Note: Column totals do not sum up to 100% because each state can be unexpected in multiple categories." ) %>%
+               subtitle="Summary of states-level unexpected outcomes.") %>%
+    tab_source_note( source_note = "Note: A single state can count in multiple exception types." ) %>%
     data_color (
-      columns=2:5, 
+      columns="any_percent", 
       colors = scales::col_numeric( 
       palette = c( "white","red"), 
         domain = c(0,1) ) 
     ) %>% 
     gt_theme_538() 
+
 
 planProp.df %>% filter(win_final) %>% 
   group_by(creator_coded,year) %>% summarize(wins=n(),percent=wins/32) %>% 
@@ -518,30 +522,32 @@ res_outcomes_party.df %>%
   )) %>%
     pivot_wider(names_from=c("year","type"), values_from=c("events","percent"),values_fill=0) %>%
   relocate(creator_coded, 
-           events_2013_Invalidated,percent_2013_Invalidated,
-           events_2017_Invalidated,percent_2017_Invalidated,
            events_2013_WinViolation,percent_2013_WinViolation,
            events_2017_WinViolation,percent_2017_WinViolation,
+           events_2013_Invalidated,percent_2013_Invalidated,
+           events_2017_Invalidated,percent_2017_Invalidated,
            ) %>%
       group_by(actortype) %>%
   gt(rowname_col="creator_coded") %>%
+    cols_hide(columns=c(percent_2017_Invalidated,percent_2013_Invalidated)) %>%
     cols_label( events_2013_Invalidated = "2013", 
                 events_2017_Invalidated = "2017",
                 events_2013_WinViolation = "2013",
                 events_2017_WinViolation = "2017",
-                percent_2013_Invalidated = "", 
+                percent_2017_Invalidated = "", 
                 percent_2017_Invalidated = "",
                 percent_2013_WinViolation = "",
                 percent_2017_WinViolation = "",
                 ) %>%
-    tab_header(title="Exceptions by Creator") %>%
-    tab_source_note( source_note = "Note: Denominator for wins is 32 states/year. Denominator for invalidations is total proposals by that party." ) %>%
+    tab_header(title="Exceptional results", 
+               subtitle="Number of states in which extra to rules were made for plans, by actor.") %>%
+    tab_source_note( source_note = "Note: Multiple invalidations may occur per state." ) %>%
  fmt_percent(columns=starts_with("percent")) %>%
   data_color (
        columns=starts_with("percent"), 
        colors = scales::col_numeric( 
        palette = c( "white","red"), 
-         domain = c(0,.2) ) 
+         domain = c(0,1) ) 
      ) %>%
     tab_spanner(columns=c("events_2013_WinViolation",
                           "percent_2013_WinViolation",
@@ -552,7 +558,14 @@ res_outcomes_party.df %>%
                           "percent_2013_Invalidated",
                           "events_2017_Invalidated",
                           "percent_2017_Invalidated" ),
-                           label="Invalidated") %>%
+                           label="Invalidated Plans") %>%
+  grand_summary_rows(
+    columns = c(events_2013_WinViolation,events_2017_WinViolation),
+    fns = list(
+      'total states won by exception' = ~sum(.)),
+    formatter = fmt_integer,
+    use_seps = FALSE
+  ) %>% 
     gt_theme_538() 
 
 
