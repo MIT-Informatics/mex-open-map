@@ -281,7 +281,7 @@ rm(ex_11_13, ex_11_17)
 efficiency.df <- contestSum.df %>% rowwise() %>% mutate(efficiency=(1-(phase1_start-lowestvalid)/lowestvalid)*100) %>% select(year,edon,efficiency) %>% mutate(year=as.factor(year))
 efficiency.df %>% group_by(year) %>% summarize(min_efficiency=min(efficiency),median_efficiency=median(efficiency), mean_efficiency=mean(efficiency))
 efficiency.df %>% ggplot(aes(efficiency))+geom_histogram(bins=30)+facet_grid(rows=vars(year))
-efficiency.df %>% ggplot(aes(x=edon,y=efficiency,fill=year))+geom_col(position="dodge", width=.5)
+efficiency.df %>% ggplot(aes(x=edon,y=efficiency,fill=year))+geom_col(position="dodge", width=.5)+labs(x="State number")
 rm(efficiency.df)
 
 planProp.df %>% filter(best_plan) %>% 
