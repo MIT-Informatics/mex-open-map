@@ -296,6 +296,7 @@ ungroup() %>%
   )) %>%
   pivot_wider(names_from="year", values_from=c("count","percent"),values_fill=0) %>%
   relocate(count_2013,percent_2013,count_2017,percent_2017) %>%
+  mutate(actortype=fct_recode(actortype,"Major Party"="major","Minor Party"="minor")) %>%
   group_by(actortype) %>%
   gt(rowname_col="creator_coded") %>%
    tab_header(title="Best Scoring Plans", 
@@ -452,6 +453,7 @@ planProp.df %>% filter(win_final) %>%
   )) %>%
   pivot_wider(names_from="year", values_from=c("wins","percent"),values_fill=0) %>%
   relocate(wins_2013,percent_2013,wins_2017,percent_2017) %>%
+  mutate(actortype=fct_recode(actortype,"Major Party"="major","Minor Party"="minor")) %>%
   group_by(actortype) %>%
   gt(rowname_col="creator_coded") %>%
    tab_header(title="Winning Plans",
@@ -527,7 +529,9 @@ res_outcomes_party.df %>%
            events_2013_Invalidated,percent_2013_Invalidated,
            events_2017_Invalidated,percent_2017_Invalidated,
            ) %>%
+  
       group_by(actortype) %>%
+    mutate(actortype=fct_recode(actortype,"Major Party"="major","Minor Party"="minor")) %>%
   gt(rowname_col="creator_coded") %>%
     cols_hide(columns=c(percent_2017_Invalidated,percent_2013_Invalidated)) %>%
     cols_label( events_2013_Invalidated = "2013", 
@@ -540,7 +544,7 @@ res_outcomes_party.df %>%
                 percent_2017_WinViolation = "",
                 ) %>%
     tab_header(title="Exceptional results", 
-               subtitle="Number of states in which extra to rules were made for plans, by actor.") %>%
+               subtitle="Number of states in which exceptions to rules were made for plans, by actor.") %>%
     tab_source_note( source_note = "Note: Multiple invalidations may occur per state." ) %>%
  fmt_percent(columns=starts_with("percent")) %>%
   data_color (
