@@ -338,7 +338,7 @@ res_events_grp.df <-
 
 res_events_grp.df %<>% bind_rows(
    contestSum.df %>% group_by(year) %>% summarise(
-      events = sum(final_section8) + sum(phase2_section8) , 
+      events = sum(final_section8) + sum(phase2_section8 ) , 
       denominator = n()*2, type = "Unanimous Higher Score Proposal Accepted" , category="compliance"
   )
 )
