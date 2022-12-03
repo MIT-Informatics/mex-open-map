@@ -200,7 +200,7 @@ thirdparty.tab %>%
   tab_header(title="Undocumented proposals",
              subtitle="Proposals that were  incompletely documented.") %>%
   tab_source_note(
-    source_note = "Note: Does not INE interventions to modify plans during decision phase." ) %>%
+    source_note = "Note: Does not include INE interventions to modify plans during decision phase." ) %>%
   tab_spanner(columns=c("missing_2013","unscored_2013"),label="2013") %>%
     tab_spanner(columns=c("missing_2017","unscored_2017"),label="2017") %>%
   data_color( 
@@ -1350,6 +1350,14 @@ splitcmp.df <- splitcmp.df[[1,1]][[1]]
 ## revealed preference properties
 ```{r revealed-analysis}
 # valid major party proposals
+
+spreadn <- function(x) {
+  nx <- na.omit(x)
+  if (length(nx)==0) {
+    return(NA)
+  }
+  max(x,na.rm=TRUE)-min(x,na.rm=TRUE)
+}
 counterScore <- function(p1,p2,proposer) {
   if (is.null(proposer)) {proposer=""}
   rows.tib <- left_join(by="planid",tibble(planid=c(p1,p2)), validScores.tbl) %>%
@@ -1360,6 +1368,12 @@ counterScore <- function(p1,p2,proposer) {
                                        filter(win_actor==proposer) %>%
                                        pull(win_margin) %>%
                                        mean(na.rm=TRUE) )
+      ),
+      proposer_win_spread = ifelse( is.null(win_margins) , NA_real_ , 
+                                    (win_margins %>% 
+                                       filter(win_actor==proposer) %>%
+                                       pull(win_margin) %>%
+                                       spreadn() )
       ),
       proposer_win_margin_capped = ifelse( is.null(win_margins) , NA_real_ , 
                    (win_margins %>% 
@@ -1382,9 +1396,19 @@ counterScore <- function(p1,p2,proposer) {
                mutate( pwin_margin=ifelse(isp,win_margin,-1*win_margin)) %>%
                pull(pwin_margin) %>% mean(na.rm=TRUE) %>% 
                replace_na(0))
-      )
+      ),
+      proposer_packed_margin = ifelse( is.null(win_margins) , NA_real_ , 
+                                    (win_margins %>% 
+                                       filter(win_actor==proposer, win_margin > .1) %>%
+                                       pull(win_margin) %>%
+                                       mean(na.rm=TRUE) )
+      ),
     ) %>%
     mutate(proposer_win_margin=replace_na(proposer_win_margin,0)) %>%
+    mutate(proposer_packed_margin=replace_na(proposer_packed_margin,0)) %>%
+    mutate(proposer_win_spread=replace_na(proposer_win_spread,0)) %>%
+
+
     select(-tla,-planid,-win_margins)
   diff_cols<-rows.tib[1,]-rows.tib[2,]
   diff_cols %<>%   rename(score_difference=official_score, 
@@ -1395,6 +1419,8 @@ counterScore <- function(p1,p2,proposer) {
                           competitive_margin_difference= comp_margin,
                           proposer_competitive_margin_difference= pcomp_margin,
                           proposer_win_difference=proposer_win_margin,
+                          proposer_win_spread_difference=proposer_win_spread,
+                          proposer_packed_difference=proposer_packed_margin,
                           proposer_win_difference_capped=proposer_win_margin_capped,
                           proposer_seat_difference = proposer_win_seat,
                           compactness_difference =off_compact) %>%
@@ -1452,13 +1478,16 @@ propmatch.df %>%
 propmatch.df %>% 
   filter(actortype %in% c("major","minor")) %>%
   mutate(actortype = fct_drop(actortype)) %>%
-  select( "actortype", "competitive_difference", "proposer_win_difference", "proposer_seat_difference","proposer_competitive_margin_difference", "proposer_composite_difference") %>%
-  relocate("proposer_seat_difference","competitive_difference","proposer_win_difference","proposer_competitive_margin_difference","proposer_composite_difference") %>% 
+  select( "actortype", "competitive_difference", "proposer_win_difference", "proposer_seat_difference","proposer_competitive_margin_difference", "proposer_win_spread_difference",
+          "proposer_packed_difference",
+          "proposer_composite_difference") %>%
+  relocate("proposer_seat_difference","competitive_difference","proposer_win_difference","proposer_win_spread_difference", "proposer_competitive_margin_difference","proposer_packed_difference", "proposer_composite_difference") %>% 
   tbl_summary(by=actortype,
               type = list(everything() ~ "continuous"),
           statistic = list(all_continuous() ~ "{mean} ({sd}) [{min}-{max}]"),
           missing="no",
-          label = list("proposer_seat_difference" ~ "Proposer Seat Change","competitive_difference" ~ "Competitive Seat Change","proposer_win_difference"~ "Proposer Win Margin Change","proposer_competitive_margin_difference"~"Proposer Competive Margin Change" ,"proposer_composite_difference" ~ "Total Proposer Score Change")
+          label = list("proposer_seat_difference" ~ "Proposer Seat Change","competitive_difference" ~ "Competitive Seat Change","proposer_win_difference"~ " Margin change in winning districts for proposer","proposer_competitive_margin_difference"~"Margin change for proposer in competitive districts" ,"proposer_composite_difference" ~ "Total Composite Score Change",
+                       "proposer_packed_difference" ~ "Margin change in districts packed for proposer")
           ) %>%
  as_gt() %>% 
   tab_header(title="Counterproposal Differences by Actor Type - Theoretical Predictors")
