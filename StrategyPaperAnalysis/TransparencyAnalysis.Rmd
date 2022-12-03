@@ -217,7 +217,9 @@ thirdparty.tab %>%
     formatter = fmt_integer,
     use_seps = FALSE
   ) %>% 
-  gt_theme_538() 
+  gt_theme_538() -> thirdparty.gt
+thirdparty.gt
+thirdparty.gt %>% gtsave("thirdparty.docx")
 ```
 ## Process Overview
 ```{r  fig.height=2, fig.width=10 }
@@ -362,7 +364,7 @@ res_events_grp.df %<>% bind_rows(
 res_events_grp.df %<>% bind_rows(
   contestSum.df %>% group_by(year) %>% summarise(
       events = sum(phase2_violation) + sum(final_violation) , 
-      denominator = n()*2, type = "Higher Score Plan Without Unanimity" , category="compliance"
+      denominator = n()*2, type = "INE Accepted Higher Score Plan Without Unanimity" , category="compliance"
   )
 )
 
@@ -401,7 +403,9 @@ res_events_grp.df %>% group_by(year) %>% summarize(
     formatter = fmt_integer,
     use_seps = FALSE
   ) %>% 
-    gt_theme_538() 
+    gt_theme_538() -> exceptions.gt
+exceptions.gt
+exceptions.gt %>% gtsave("process_exceptions.docx")
 ```
 
 ## Outcome vs Expectations
