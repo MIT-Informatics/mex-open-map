@@ -220,6 +220,7 @@ thirdparty.tab %>%
   gt_theme_538() -> thirdparty.gt
 thirdparty.gt
 thirdparty.gt %>% gtsave("thirdparty.docx")
+proptrans.df %>% group_by(year) %>% count # baseline
 ```
 ## Process Overview
 ```{r  fig.height=2, fig.width=10 }
