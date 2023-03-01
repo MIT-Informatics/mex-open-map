@@ -1,0 +1,595 @@
+---
+title: "Transparency Analysis"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+  pdf_document: default
+  html_notebook: default
+---
+# Setup
+```{r setup}
+## Libraries
+library(tidyverse)
+library(magrittr)
+library(tidylog)
+library(gt)
+library(grid)
+library(egg)
+library(gtable)
+library(patchwork)
+library(webshot)
+options("tidylog.display" = list())  # turn off
+```
+
+```{r save-checkpoint}
+saveRDS(planProp.df,"planProp.RDS")
+saveRDS(proptrans.df,"proptrans.RDS")
+saveRDS(contestSum.df,"contestSum.RDS")
+saveRDS(actors.df,"actors.RDS")
+```
+
+
+#Transparency Analysis
+```{r load-checkpoint}
+rm(list=ls())
+planProp.df <- readRDS("planProp.RDS")
+proptrans.df <- readRDS("proptrans.RDS")
+contestSum.df <- readRDS("contestSum.RDS")
+actors.df<-readRDS("actors.RDS")
+```
+```{r}
+##set themes for look and feel of tables
+
+
+gt_theme_538 <- function(data,...) {
+  data %>%
+  opt_all_caps()  %>%
+  opt_table_font(
+    font = list(
+      google_font("Chivo"),
+      default_fonts()
+    )
+  ) %>%
+    tab_style(
+      style = cell_borders(
+        sides = "bottom", color = "transparent", weight = px(2)
+      ),
+      locations = cells_body(
+        columns = everything(),
+        # This is a relatively sneaky way of changing the bottom border
+        # Regardless of data size
+        rows = nrow(data$`_data`)
+      )
+    )  %>% 
+  tab_options(
+    column_labels.background.color = "white",
+    table.border.top.width = px(3),
+    table.border.top.color = "transparent",
+    table.border.bottom.color = "transparent",
+    table.border.bottom.width = px(3),
+    column_labels.border.top.width = px(3),
+    column_labels.border.top.color = "transparent",
+    column_labels.border.bottom.width = px(3),
+    column_labels.border.bottom.color = "black",
+    data_row.padding = px(3),
+    source_notes.font.size = 12,
+    table.font.size = 16,
+    heading.align = "left",
+    c(...)
+  ) 
+}
+
+theme_set(theme_gray(base_size = 18))
+
+```
+## Third Party Actors
+*  All scored entries are in 2013
+* Unspecificed actors - Junta, CLV, PRD51
+* Plans are scored, but not included for ghostprop
+* Also 2017 Jalisco plan by derfe/INE in archive of plans but not officially scored
+```{r}
+thirdparty.tab <- proptrans.df %>% group_by(year,actor2) %>% summarise (
+  outside=sum(PROPOSED & actortype2 %in% c("admin","other") & stage %in% c(2,4),na.rm=TRUE),
+  missing=sum(!is.na(PROPOSED) & PROPOSED & !hasplan),
+  unscored=sum(!is.na(PROPOSED) & !PROPOSED & hasplan ),
+  grandtotal=outside+missing+unscored,
+) 
+thirdparty.tab %>% 
+  filter(grandtotal>0) %>%
+  select(-grandtotal,-outside) %>%
+  pivot_wider(names_from="year", values_from=c("missing","unscored"),values_fill=0) %>%
+  relocate(actor2,missing_2013,unscored_2013,missing_2017,unscored_2017) %>%
+   gt()  %>%
+  cols_label( "actor2" = "",
+              "missing_2013"="Missing Plans",
+              "missing_2017"="Missing Plans",
+               "unscored_2017"="Nonscored",
+              "unscored_2013"="Nonscored" ) %>%
+  tab_header(title="Undocumented proposals",
+             subtitle="Proposals that were  incompletely documented.") %>%
+  tab_source_note(
+    source_note = "Note: Does not include INE interventions to modify plans during decision phase." ) %>%
+  tab_spanner(columns=c("missing_2013","unscored_2013"),label="2013") %>%
+    tab_spanner(columns=c("missing_2017","unscored_2017"),label="2017") %>%
+  data_color( 
+      columns = c("missing_2013","missing_2017","unscored_2017","unscored_2013"), 
+      colors = scales::col_numeric( 
+      palette = c( "white","orange"), 
+        domain = c(0,100) 
+      )
+  ) %>% 
+   grand_summary_rows(
+    columns = c("missing_2013","missing_2017","unscored_2017","unscored_2013"),
+    fns = list(
+      'total (per year)' = ~sum(.)),
+    formatter = fmt_integer,
+    use_seps = FALSE
+  ) %>% 
+  gt_theme_538() -> thirdparty.gt
+thirdparty.gt
+thirdparty.gt %>% gtsave("thirdparty.docx")
+proptrans.df %>% group_by(year) %>% count # baseline
+```
+## Process Overview
+```{r  fig.height=2, fig.width=10 }
+procColors <- planProp.df %>% filter(VALIDPLAN) %>%
+  scale_color_hue("creator_label",drop=FALSE)
+zoom1<-planProp.df %>% filter(VALIDPLAN) %>% group_by(planid) %>% unnest(cols=stages) %>% filter(year==2013, edon==15) %>% 
+   ggplot(aes(x=stages,y=rscore,group=planid,color=creator_label,shape=creator_label))+geom_point()+geom_line()+ geom_vline(xintercept=c(2,4),alpha=.2,color="blue")+
+  facet_grid(rows=vars(tla), cols=vars(year), scales="free_y")+
+    scale_color_hue("creator_label",drop=FALSE)+
+        scale_shape_discrete("creator_label",drop=FALSE)+
+  theme(axis.title.y=element_blank(),legend.title=element_blank(), legend.position="none")
+zoom2<-planProp.df %>% filter(VALIDPLAN) %>% group_by(planid) %>% unnest(cols=stages) %>% filter(year==2017, edon==19) %>% 
+   ggplot(aes(x=stages,y=rscore,color=creator_label,shape=creator_label,group=planid))+geom_point()+geom_line()+ geom_vline(xintercept=c(2,4),alpha=.2,color="blue")+
+  facet_grid(rows=vars(tla), cols=vars(year), scales="free_y")+
+    scale_color_hue("creator_label",drop=FALSE)+
+    scale_shape_discrete("creator_label",drop=FALSE)+
+  theme(axis.title.y=element_blank(),legend.title=element_blank(), 
+        strip.background = element_rect(fill=alpha("blue",.3)),)
+fig3<-ggarrange(zoom1,zoom2,ncol=2)
+fig3 %>% ggsave("fig3.png",plot=.)
+rm(zoom1,zoom2) 
+
+```
+
+```{r fig.width=10, fig.height=10}
+#plots
+pl1<-planProp.df %>% filter(VALIDPLAN) %>% group_by(planid) %>% unnest(cols=stages) %>% filter(year==2013, edon<16) %>% 
+  ggplot(aes(x=stages,y=rscore,color=creator_label,shape=creator_label,group=planid)) +geom_point()+geom_line()+geom_vline(xintercept=c(2,4),alpha=.3,color="blue")+
+  facet_grid(rows=vars(tla), cols=vars(year), scales="free_y")+theme(legend.position = "none") +
+    scale_color_hue("creator_label",drop=FALSE)
+pl2<-planProp.df %>% filter(VALIDPLAN)  %>% group_by(planid) %>% unnest(cols=stages) %>% filter(year==2017, edon<16) %>% 
+   ggplot(aes(x=stages,y=rscore,color=creator_label,shape=creator_label,group=planid))+geom_point()+geom_line()+ geom_vline(xintercept=c(2,4),alpha=.3,color="blue")+
+  facet_grid(rows=vars(tla), cols=vars(year), scales="free_y") + theme(legend.position = "none", axis.title.y=element_blank(), strip.background =element_rect(fill=alpha("blue",.3)))+
+    scale_color_hue("creator_label",drop=FALSE)
+pl3<-planProp.df %>% filter(VALIDPLAN) %>% group_by(planid) %>% unnest(cols=stages) %>% filter(year==2013, edon>=16) %>% 
+  ggplot(aes(x=stages,y=rscore,color=creator_label,shape=creator_label,group=planid)) +geom_point()+geom_line()+ geom_vline(xintercept=c(2,4),alpha=.3,color="blue")+
+  facet_grid(rows=vars(tla), cols=vars(year), scales="free_y")+theme(legend.position = "none",axis.title.y=element_blank()) +
+    scale_color_hue("creator_label",drop=FALSE)
+pl4<-planProp.df %>% filter(VALIDPLAN) %>% group_by(planid) %>% unnest(cols=stages) %>% filter(year==2017, edon>=16) %>% 
+   ggplot(aes(x=stages,y=rscore,color=creator_label,shape=creator_label,group=planid))+geom_point(aes(shape=creator_label))+geom_line()+ geom_vline(xintercept=c(2,4),alpha=.2,color="blue")+
+  facet_grid(rows=vars(tla), cols=vars(year), scales="free_y")+theme(axis.title.y=element_blank(), legend.title=element_blank(),
+strip.background =element_rect(fill=alpha("blue",.3))) +
+    scale_color_hue("creator_label",drop=FALSE)
+fig2<-ggarrange(pl1,pl2,pl3,pl4,ncol=4)
+print(fig2)
+fig2 %>% ggsave("fig2.png",plot=.)
+rm(pl1,pl2,pl3,pl4)
+```
+
+## Algorithmic Score Efficency 
+```{r, best-scoring}
+efficiency.df <- contestSum.df %>% rowwise() %>% mutate(efficiency=(1-(phase1_start-lowestvalid)/lowestvalid)*100) %>% select(year,edon,efficiency) %>% mutate(year=as.factor(year))
+efficiency.df %>% group_by(year) %>% summarize(min_efficiency=min(efficiency),median_efficiency=median(efficiency), mean_efficiency=mean(efficiency))
+efficiency.df %>% ggplot(aes(efficiency))+geom_histogram(bins=30)+facet_grid(rows=vars(year))
+efficiency.df %>% ggplot(aes(x=edon,y=efficiency,fill=year))+geom_col(position="dodge", width=.5)+labs(x="State number")
+rm(efficiency.df)
+
+planProp.df %>% filter(best_plan) %>% 
+  group_by(creator_coded,year) %>% summarise(count=n(),percent=count/32) %>% 
+ungroup() %>%
+  left_join(by=c("creator_coded"="actor"),actors.df) %>%
+  mutate( actortype=case_when(
+    as.character(creator_coded)=="ALGORITHM" ~ "admin",
+    as.character(creator_coded)=="Coalition" ~ "multiple",
+        as.character(creator_coded)=="UNANIMOUS" ~ "multiple",
+    TRUE ~ as.character(actortype)
+  )) %>%
+  pivot_wider(names_from="year", values_from=c("count","percent"),values_fill=0) %>%
+  relocate(count_2013,percent_2013,count_2017,percent_2017) %>%
+  mutate(actortype=fct_recode(actortype,"Major Party"="major","Minor Party"="minor")) %>%
+  group_by(actortype) %>%
+  gt(rowname_col="creator_coded") %>%
+   tab_header(title="Best Scoring Plans", 
+              subtitle = "Best-scoring state plans created by each actor." ) %>%
+   cols_label( "creator_coded" = "Actor", "count_2013"="", "percent_2013"="",
+               "count_2017"="","percent_2017"="") %>%
+  tab_spanner(columns=c("count_2013","percent_2013"),label="2013") %>%
+    tab_spanner(columns=c("count_2017","percent_2017"),label="2017") %>%
+
+    fmt_percent(columns=starts_with("percent")) %>%
+  data_color (
+       columns=starts_with("percent"), 
+       colors = scales::col_numeric( 
+       palette = c( "white","red"), 
+         domain = c(0,1) ) 
+     ) %>% 
+    grand_summary_rows(
+    columns = c(count_2013,count_2017),
+    fns = list(
+      'total (per year)' = ~sum(.)),
+    formatter = fmt_integer,
+    use_seps = FALSE
+  ) %>% 
+   tab_source_note(
+    source_note = "Note: Creators refers to initial plan creators, others may have joined in later rounds." ) %>%
+  gt_theme_538() 
+
+
+```
+## Exceptional Events 
+```{r}
+res_events_grp.df <-
+  planProp.df %>% group_by(year) %>% summarise(
+      events = sum( !VALIDPLAN ) , 
+      denominator = n(), type = "INE Invalidated Proposed Plan" , category="compliance"
+  )
+
+res_events_grp.df %<>% bind_rows(
+   contestSum.df %>% group_by(year) %>% summarise(
+      events = sum(final_section8) + sum(phase2_section8 ) , 
+      denominator = n()*2, type = "Unanimous Higher Score Proposal Accepted" , category="compliance"
+  )
+)
+
+res_events_grp.df %<>% bind_rows(
+  contestSum.df %>% group_by(year) %>% summarise(
+      events = sum(INEchanged_phase3) + sum(INEchanged_final) , 
+      denominator = n()*2, type = "INE Modified proposals" , category="compliance"
+  )
+)
+
+res_events_grp.df %<>% bind_rows(
+  contestSum.df %>% 
+  rowwise () %>% 
+  mutate ( adminplans=(length(phase2_plans)-length(phase2_plans_party)) +
+                           (length(phase4_plans)-length(phase4_plans_party))) %>% 
+     group_by(year) %>% summarise(
+      events = sum(adminplans)  , 
+      denominator = n()*2, type = "INE Added proposals" , category="compliance"
+  )
+)
+
+res_events_grp.df %<>% bind_rows(
+  contestSum.df %>% group_by(year) %>% summarise(
+      events = sum(phase2_violation) + sum(final_violation) , 
+      denominator = n()*2, type = "INE Accepted Higher Score Plan Without Unanimity" , category="compliance"
+  )
+)
+
+
+
+res_events_grp.df %>% group_by(year) %>% summarize(
+  type=type, 
+  count=events,
+  percent=count/sum(count,na.rm=TRUE),
+  ) %>%
+  pivot_wider(names_from=year,values_from=c(count,percent))%>%
+  relocate(type,count_2013,percent_2013,count_2017,percent_2017) %>%
+  gt() %>%
+    cols_label( percent_2013="" , percent_2017="", "type"="","count_2013"="","count_2017"="") %>%
+    fmt_percent(columns=c("percent_2013","percent_2017")) %>%
+    tab_header(title="Process Exceptions",
+               subtitle = "Sums the number of exception events by category.") %>%
+    tab_spanner(
+      label = "2013",
+      columns = vars(count_2013, percent_2013)
+    ) %>%
+    tab_spanner(
+      label = "2017",
+      columns = vars(count_2017, percent_2017)
+    ) %>%
+    data_color (
+       columns=starts_with("percent"), 
+       colors = scales::col_numeric( 
+       palette = c( "white","red"), 
+         domain = c(0,1) ) 
+     ) %>%
+   grand_summary_rows(
+    columns = c(count_2013,count_2017),
+    fns = list(
+      'total exceptions (per year)' = ~sum(.)),
+    formatter = fmt_integer,
+    use_seps = FALSE
+  ) %>% 
+    gt_theme_538() -> exceptions.gt
+exceptions.gt
+exceptions.gt %>% gtsave("process_exceptions.docx")
+```
+
+## Outcome vs Expectations
+- Best score won
+- Algorithm won
+- Lower score won without unanimity
+- Section 8 won
+```{r}
+contestSum.df %>%
+  rowwise() %>%
+  mutate( algorithm_lost = final_win != phase1_start, 
+    any_unexpected = any(best_lost,final_violation,final_section8
+                         )  ) %>%
+  group_by(year) %>%     
+  summarize( 
+    any_unexpected = sum(any_unexpected),
+    any_percent = any_unexpected/n(),
+    best_lost = sum(best_lost),
+    algorithm_lost = sum(algorithm_lost),
+    section8_won = sum(final_section8),
+    rules_violation = sum(final_violation),
+  ) %>% group_by(year) %>%
+ gt() %>%
+    cols_label( algorithm_lost= "Algorithm  Lost", best_lost="Best Score Lost", 
+                section8_won="Unanimous - Not Best", rules_violation="No Agreement & Not Best", any_percent = "(% of states)", any_unexpected="States with exceptions") %>%
+    fmt_percent("any_percent") %>%
+      tab_spanner(columns=c("best_lost","algorithm_lost","section8_won","rules_violation"),label="Exception Types") %>%
+    tab_header(title="Unexpected Winners",
+               subtitle="Summary of states-level unexpected outcomes.") %>%
+    tab_source_note( source_note = "Note: A single state can count in multiple exception types." ) %>%
+    data_color (
+      columns="any_percent", 
+      colors = scales::col_numeric( 
+      palette = c( "white","red"), 
+        domain = c(0,1) ) 
+    ) %>% 
+    gt_theme_538() 
+
+
+planProp.df %>% filter(win_final) %>% 
+  group_by(creator_coded,year) %>% summarize(wins=n(),percent=wins/32) %>% 
+  ungroup() %>%
+  left_join(by=c("creator_coded"="actor"),actors.df) %>%
+  mutate( actortype=case_when(
+    as.character(creator_coded)=="ALGORITHM" ~ "admin",
+    as.character(creator_coded)=="Coalition" ~ "multiple",
+        as.character(creator_coded)=="UNANIMOUS" ~ "multiple",
+    TRUE ~ as.character(actortype)
+  )) %>%
+  pivot_wider(names_from="year", values_from=c("wins","percent"),values_fill=0) %>%
+  relocate(wins_2013,percent_2013,wins_2017,percent_2017) %>%
+  mutate(actortype=fct_recode(actortype,"Major Party"="major","Minor Party"="minor")) %>%
+  group_by(actortype) %>%
+  gt(rowname_col="creator_coded") %>%
+   tab_header(title="Winning Plans",
+               subtitle = "Winning state plans created by each actor.") %>%
+   cols_label( "creator_coded" = "Actor", "wins_2013"="", "percent_2013"="",
+               "wins_2017"="","percent_2017"="") %>%
+  tab_spanner(columns=c("wins_2013","percent_2013"),label="2013") %>%
+    tab_spanner(columns=c("wins_2017","percent_2017"),label="2017") %>%
+
+    fmt_percent(columns=starts_with("percent")) %>%
+  data_color (
+       columns=starts_with("percent"), 
+       colors = scales::col_numeric( 
+       palette = c( "white","red"), 
+         domain = c(0,1) ) 
+     ) %>% 
+  grand_summary_rows(
+    columns = c(wins_2013,wins_2017),
+    fns = list(
+      'total (states)' = ~sum(.)),
+    formatter = fmt_integer,
+    use_seps = FALSE
+  ) %>% 
+  tab_source_note(
+    source_note = "Note: Creators refers to initial plan creators, others may have joined in later rounds." ) %>%
+  gt_theme_538()
+
+
+```
+
+## Exceptions by party
+```{r}
+
+res_outcomes_party.df <-
+  planProp.df %>% group_by(year,creator_coded) %>% summarise(
+      events = sum( !VALIDPLAN ) , 
+      denominator = n(), type = "Invalidated" , category="compliance"
+  )
+
+# Not enough variation with coalitions... move this to a proportion/network analysis
+# note denominator is number of contests in each year
+#res_outcomes_party.df %<>% bind_rows(
+#    planProp.df %>% group_by(year,creator_coded) %>% summarise(
+#      events = sum( win_section8 ) , 
+#      denominator = 32, type = "Won w Sec8" , category="compliance"
+# )
+#)
+
+res_outcomes_party.df %<>% bind_rows(
+    planProp.df %>% group_by(year,creator_coded) %>% summarise(
+      events = sum( win_violation ) , 
+      denominator = 32, type = "WinViolation" , category="compliance"
+  )
+)
+
+res_outcomes_party.df %<>% rowwise() %>% mutate(percent=events/denominator)
+
+res_outcomes_party.df %>% 
+  group_by(year,creator_coded) %>% relocate(type) %>% select(-denominator,-category) %>%
+    filter(sum(events)>0) %>%
+    ungroup() %>%
+    left_join(by=c("creator_coded"="actor"),actors.df) %>%
+   mutate( actortype=case_when(
+    as.character(creator_coded)=="ALGORITHM" ~ "admin",
+    as.character(creator_coded)=="Coalition" ~ "multiple",
+        as.character(creator_coded)=="UNANIMOUS" ~ "multiple",
+    TRUE ~ as.character(actortype)
+  )) %>%
+    pivot_wider(names_from=c("year","type"), values_from=c("events","percent"),values_fill=0) %>%
+  relocate(creator_coded, 
+           events_2013_WinViolation,percent_2013_WinViolation,
+           events_2017_WinViolation,percent_2017_WinViolation,
+           events_2013_Invalidated,percent_2013_Invalidated,
+           events_2017_Invalidated,percent_2017_Invalidated,
+           ) %>%
+  
+      group_by(actortype) %>%
+    mutate(actortype=fct_recode(actortype,"Major Party"="major","Minor Party"="minor")) %>%
+  gt(rowname_col="creator_coded") %>%
+    cols_hide(columns=c(percent_2017_Invalidated,percent_2013_Invalidated)) %>%
+    cols_label( events_2013_Invalidated = "2013", 
+                events_2017_Invalidated = "2017",
+                events_2013_WinViolation = "2013",
+                events_2017_WinViolation = "2017",
+                percent_2017_Invalidated = "", 
+                percent_2017_Invalidated = "",
+                percent_2013_WinViolation = "",
+                percent_2017_WinViolation = "",
+                ) %>%
+    tab_header(title="Exceptional results", 
+               subtitle="Number of states in which exceptions to rules were made for plans, by actor.") %>%
+    tab_source_note( source_note = "Note: Multiple invalidations may occur per state." ) %>%
+ fmt_percent(columns=starts_with("percent")) %>%
+  data_color (
+       columns=starts_with("percent"), 
+       colors = scales::col_numeric( 
+       palette = c( "white","red"), 
+         domain = c(0,1) ) 
+     ) %>%
+    tab_spanner(columns=c("events_2013_WinViolation",
+                          "percent_2013_WinViolation",
+                          "events_2017_WinViolation",
+                          "percent_2017_WinViolation"
+                         ) , label="Won in Violation of Rules") %>%
+    tab_spanner( columns=c("events_2013_Invalidated", 
+                          "percent_2013_Invalidated",
+                          "events_2017_Invalidated",
+                          "percent_2017_Invalidated" ),
+                           label="Invalidated Plans") %>%
+  grand_summary_rows(
+    columns = c(events_2013_WinViolation,events_2017_WinViolation),
+    fns = list(
+      'total states won by exception' = ~sum(.)),
+    formatter = fmt_integer,
+    use_seps = FALSE
+  ) %>% 
+    gt_theme_538() 
+
+
+
+```
+
+## Disaggregated Analysis
+```{r}
+unrolled.df <-planProp.df  %>% unnest(creators)
+
+ncontests <- 32
+res_outcomes_unrolled.df <- 
+  unrolled.df %>% 
+  filter(win_final) %>% 
+  mutate(denominator=ncontests) %>% 
+  group_by(year,creators) %>% 
+  summarise(  events = n(), type = "Win", denominator=unique(denominator) )
+
+res_outcomes_unrolled.df %<>% bind_rows(
+  unrolled.df %>% 
+  mutate(denominator=ncontests) %>% 
+  filter(win_section8) %>% 
+  group_by(year,creators) %>% 
+  summarise(  events = n(), type = "Win by sec 8", denominator=unique(denominator) )
+)
+
+res_outcomes_unrolled.df %<>% bind_rows(
+  unrolled.df %>% 
+  mutate(denominator=ncontests) %>% 
+  filter(win_violation) %>% 
+  group_by(year,creators) %>% 
+  summarise(  events = n(), type = "Win in violation of the rules", denominator=unique(denominator) )
+)
+
+res_outcomes_unrolled.df %<>% bind_rows(
+  unrolled.df %>% 
+  group_by(year) %>% mutate(denominator=length(unique(planid))) %>% 
+  filter(!VALIDPLAN) %>% 
+  group_by(year,creators) %>% 
+  summarise(  events = n(), type = "Invalidated", denominator=unique(denominator) )
+)
+
+res_outcomes_unrolled.df %<>% rowwise() %>% mutate(percent=events/denominator)
+
+res_outcomes_unrolled.df %>% 
+  rowwise() %>% filter(type=="Win") %>%
+  group_by(year,creators) %>% relocate(type) %>% select(-denominator) %>%
+    filter(sum(events)>0) %>%
+    gt() %>% 
+    cols_label( percent="%","events"="" ) %>%
+    fmt_percent(columns="percent") %>%
+    tab_header(title="Wins by Invidual Creator") %>%
+    tab_source_note( source_note = "Note: Percentages do not add up to 100% because plans have multiple creators. Denominator for win measures is 32/year. Denominator for invalidations is total proposals in that year." ) %>%
+    data_color (
+      columns = vars(percent), 
+      colors = scales::col_numeric( 
+      palette = c( "white","red"), 
+        domain = c(0,.8) ) 
+    ) %>% 
+    gt_theme_538() 
+
+res_outcomes_unrolled.df %>% 
+  rowwise() %>% filter(type!="Win") %>%
+  group_by(year,creators) %>% relocate(type) %>% select(-denominator) %>%
+    filter(sum(events)>0) %>%
+    gt() %>% 
+    cols_label( percent="%","events"="" ) %>%
+    fmt_percent(columns="percent") %>%
+    tab_header(title="Exceptions by Invidual Creator") %>%
+    tab_source_note( source_note = "Note: Percentages do not add up to 100% because plans have multiple creators. Denominator for win measures is 32/year. Denominator for invalidations is total proposals in that year." ) %>%
+    data_color (
+      columns = vars(percent), 
+      colors = scales::col_numeric( 
+      palette = c( "white","red"), 
+        domain = c(0,.8) ) 
+    ) %>% 
+    gt_theme_538()
+
+
+
+
+```
+##  Exploratory Network Analysis
+```{r fig.width=10, fig.height=4}
+require(DiagrammeR)
+require(tidygraph)
+require(igraph)
+require(ggraph)
+
+
+actorsnodes.df <- actors.df  %>% filter(!actor %in% c("Junta","derfe","CLV","PRD51")) %>% mutate(id=1:n()) %>% mutate(label=actor) %>% relocate(id,label)
+actorsedges.df <-planProp.df %>% select(planid, creators, win_final, win_section8, win_violation, VALIDPLAN) %>% unnest(creators)
+actorsedges.df %<>% left_join(actorsnodes.df,by=c("creators"="actor")) %>% select(-label,-actortype) %>% rename("creator_id"="id")
+actorsedges.df %<>% left_join(actorsedges.df %>% select(planid,creator_id), by="planid") %>% 
+  rename("from"="creator_id.x","to"="creator_id.y") 
+actorsedges.df %<>%  
+  filter(to!=from) %>%  
+  mutate (id=1:n() , 
+          weight = ifelse(win_final,1,.5),
+          color = ifelse(win_final,"red","black"),
+          rel = ifelse(win_final,"win","lose") 
+          ) %>%
+  relocate(id,to,from,weight,color,rel)
+    
+
+plan.graph <-create_graph( nodes_df= actorsnodes.df, edges_df = actorsedges.df, graph_name="Actors Proposing Together")
+
+#plan.graph %>% render_graph(layout="circle")
+# can also use this an igraph or tidygraph object
+plan.igraph <- to_igraph(plan.graph)
+plan.tgraph <- as_tbl_graph(plan.igraph)
+plan.tgraph %>% ggraph() +
+    geom_edge_fan(aes(color=factor(rel)),alpha=.2) +
+    #geom_edge_density(fill="blue") +
+  geom_node_label(aes(label=actor,color=factor(actortype)))
+
+```
+S
