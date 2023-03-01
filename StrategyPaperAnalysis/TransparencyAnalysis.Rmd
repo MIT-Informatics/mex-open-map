@@ -236,17 +236,20 @@ proptrans.df %>% group_by(year) %>% count # baseline
 procColors <- planProp.df %>% filter(VALIDPLAN) %>%
   scale_color_hue("creator_label",drop=FALSE)
 zoom1<-planProp.df %>% filter(VALIDPLAN) %>% group_by(planid) %>% unnest(cols=stages) %>% filter(year==2013, edon==15) %>% 
-   ggplot(aes(x=stages,y=rscore,group=planid,color=creator_label))+geom_point()+geom_line()+ geom_vline(xintercept=c(2,4),alpha=.2,color="blue")+
+   ggplot(aes(x=stages,y=rscore,group=planid,color=creator_label,shape=creator_label))+geom_point()+geom_line()+ geom_vline(xintercept=c(2,4),alpha=.2,color="blue")+
   facet_grid(rows=vars(tla), cols=vars(year), scales="free_y")+
     scale_color_hue("creator_label",drop=FALSE)+
+        scale_shape_discrete("creator_label",drop=FALSE)+
   theme(axis.title.y=element_blank(),legend.title=element_blank(), legend.position="none")
 zoom2<-planProp.df %>% filter(VALIDPLAN) %>% group_by(planid) %>% unnest(cols=stages) %>% filter(year==2017, edon==19) %>% 
-   ggplot(aes(x=stages,y=rscore,color=creator_label,group=planid))+geom_point()+geom_line()+ geom_vline(xintercept=c(2,4),alpha=.2,color="blue")+
+   ggplot(aes(x=stages,y=rscore,color=creator_label,shape=creator_label,group=planid))+geom_point()+geom_line()+ geom_vline(xintercept=c(2,4),alpha=.2,color="blue")+
   facet_grid(rows=vars(tla), cols=vars(year), scales="free_y")+
     scale_color_hue("creator_label",drop=FALSE)+
+    scale_shape_discrete("creator_label",drop=FALSE)+
   theme(axis.title.y=element_blank(),legend.title=element_blank(), 
         strip.background = element_rect(fill=alpha("blue",.3)),)
-ggarrange(zoom1,zoom2,ncol=2)
+fig3<-ggarrange(zoom1,zoom2,ncol=2)
+fig3 %>% ggsave("fig3.png",plot=.)
 rm(zoom1,zoom2) 
 
 ```
@@ -254,25 +257,28 @@ rm(zoom1,zoom2)
 ```{r fig.width=10, fig.height=10}
 #plots
 pl1<-planProp.df %>% filter(VALIDPLAN) %>% group_by(planid) %>% unnest(cols=stages) %>% filter(year==2013, edon<16) %>% 
-  ggplot(aes(x=stages,y=rscore,color=creator_label,group=planid)) +geom_point()+geom_line()+geom_vline(xintercept=c(2,4),alpha=.3,color="blue")+
+  ggplot(aes(x=stages,y=rscore,color=creator_label,shape=creator_label,group=planid)) +geom_point()+geom_line()+geom_vline(xintercept=c(2,4),alpha=.3,color="blue")+
   facet_grid(rows=vars(tla), cols=vars(year), scales="free_y")+theme(legend.position = "none") +
     scale_color_hue("creator_label",drop=FALSE)
 pl2<-planProp.df %>% filter(VALIDPLAN)  %>% group_by(planid) %>% unnest(cols=stages) %>% filter(year==2017, edon<16) %>% 
-   ggplot(aes(x=stages,y=rscore,color=creator_label,group=planid))+geom_point()+geom_line()+ geom_vline(xintercept=c(2,4),alpha=.3,color="blue")+
+   ggplot(aes(x=stages,y=rscore,color=creator_label,shape=creator_label,group=planid))+geom_point()+geom_line()+ geom_vline(xintercept=c(2,4),alpha=.3,color="blue")+
   facet_grid(rows=vars(tla), cols=vars(year), scales="free_y") + theme(legend.position = "none", axis.title.y=element_blank(), strip.background =element_rect(fill=alpha("blue",.3)))+
     scale_color_hue("creator_label",drop=FALSE)
 pl3<-planProp.df %>% filter(VALIDPLAN) %>% group_by(planid) %>% unnest(cols=stages) %>% filter(year==2013, edon>=16) %>% 
-  ggplot(aes(x=stages,y=rscore,color=creator_label,group=planid)) +geom_point()+geom_line()+ geom_vline(xintercept=c(2,4),alpha=.3,color="blue")+
+  ggplot(aes(x=stages,y=rscore,color=creator_label,shape=creator_label,group=planid)) +geom_point()+geom_line()+ geom_vline(xintercept=c(2,4),alpha=.3,color="blue")+
   facet_grid(rows=vars(tla), cols=vars(year), scales="free_y")+theme(legend.position = "none",axis.title.y=element_blank()) +
     scale_color_hue("creator_label",drop=FALSE)
 pl4<-planProp.df %>% filter(VALIDPLAN) %>% group_by(planid) %>% unnest(cols=stages) %>% filter(year==2017, edon>=16) %>% 
-   ggplot(aes(x=stages,y=rscore,color=creator_label,group=planid))+geom_point()+geom_line()+ geom_vline(xintercept=c(2,4),alpha=.2,color="blue")+
+   ggplot(aes(x=stages,y=rscore,color=creator_label,shape=creator_label,group=planid))+geom_point(aes(shape=creator_label))+geom_line()+ geom_vline(xintercept=c(2,4),alpha=.2,color="blue")+
   facet_grid(rows=vars(tla), cols=vars(year), scales="free_y")+theme(axis.title.y=element_blank(), legend.title=element_blank(),
 strip.background =element_rect(fill=alpha("blue",.3))) +
     scale_color_hue("creator_label",drop=FALSE)
-ggarrange(pl1,pl2,pl3,pl4,ncol=4)
+fig2<-ggarrange(pl1,pl2,pl3,pl4,ncol=4)
+print(fig2)
+fig2 %>% ggsave("fig2.png",plot=.)
 rm(pl1,pl2,pl3,pl4)
 ```
+
 ```{r fig.width=10, fig.height=2}
 #Pull out edon == 11 (Gua) for map analysis
 ex_11_13 <- planProp.df %>% filter(VALIDPLAN) %>% group_by(planid) %>% unnest(cols=stages) %>% filter(year==2013, edon==11) %>% 
