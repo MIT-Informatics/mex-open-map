@@ -19,7 +19,9 @@ library(egg)
 library(gtable)
 library(patchwork)
 library(webshot)
-options("tidylog.display" = list())  # turn off
+options("tidylog.display" = list())  # turn off'
+
+theme_set(theme_gray(base_size = 18))
 ```
 ```{r, include=FALSE}
 ## Bring in proposal event database
@@ -130,12 +132,25 @@ planProp.df %<>% rowwise() %>% mutate( creator_coded = case_when(
 ```
 ```{r save-checkpoint}
 saveRDS(planProp.df,"planProp.RDS")
+saveRDS(proptrans.df,"proptrans.RDS")
+saveRDS(contestSum.df,"contestSum.RDS")
+saveRDS(actors.df,"actors.RDS")
+saveRDS(propfull.df,"propfull.RDS")
+saveRDS(votes.2012.df,"votes.2012.RDS")
+saveRDS(votes.2015.df,"votes.2015.RDS")
+saveRDS(votes.2018.df,"votes.2018.RDS")
+saveRDS(statecodes.df,"statecodes.RDS")
 ```
 
 #Transparency Analysis
-```{r load-checkpoint}
+```{r load-checkpoint-trans}
 rm(list=ls())
-planprop.df <- readRDS("planProp.RDS")
+planProp.df <- readRDS("planProp.RDS")
+proptrans.df <- readRDS("proptrans.RDS")
+contestSum.df <- readRDS("contestSum.RDS")
+actors.df <- readRDS("actors.RDS")
+propfull.df <- readRDS("propfull.RDS")
+source("gt_theme_538.R")
 ```
 
 ```{r}
@@ -710,12 +725,42 @@ plan.tgraph %>% ggraph() +
 
 
 #Outcome Analysis
+#Transparency Analysis
+```{r load-checkpoint-prepseat}
+rm(list=ls())
+planProp.df <- readRDS("planProp.RDS")
+proptrans.df <- readRDS("proptrans.RDS")
+contestSum.df <- readRDS("contestSum.RDS")
+actors.df <- readRDS("actors.RDS")
+propfull.df <- readRDS("propfull.RDS")
+votes.2015.df <- readRDS("votes.2015.RDS")
+votes.2018.df <- readRDS("votes.2018.RDS")
+votes.2012.df <- readRDS("votes.2012.RDS")
+```
+
 ```{r}
 source("PrepSeatScores.R",verbose=FALSE)
+saveRDS(planProcessing.df,"planprocessing.RDS")
 ```
 Seat Outcomes Based on INE Vote/District Tables
 (Source: INE 2015 [https://web.archive.org/web/20151119052818/http://computos2015.ine.mx/Nacional/VotosPorPartido/])
 (Source: INE 2018 [https://computos2018.ine.mx/#/diputaciones/nacional/1/3/1/1])
+```{r load-checkpoint-strat}
+rm(list=ls())
+planProp.df <- readRDS("planProp.RDS")
+proptrans.df <- readRDS("proptrans.RDS")
+#contestSum.df <- readRDS("contestSum.RDS")
+#actors.df <- readRDS("actors.RDS")
+propfull.df <- readRDS("propfull.RDS")
+votes.2015.df <- readRDS("votes.2015.RDS")
+votes.2018.df <- readRDS("votes.2018.RDS")
+#votes.2012.df <- readRDS("votes.2012.RDS")
+planProcessing.df <- readRDS("planprocessing.RDS")
+statecodes.df <- readRDS("statecodes.RDS")
+source("gt_theme_538.R")
+source("plandiff.R")
+```
+
 ```{r}
 Outcome_15 <- data.frame(actor = c("MORENA", "PAN", "PRI", "PRD", "PVEM", "MC", 
                                    "PT", "PNA", "ES", "PH", "PRI-PVEM", "PRD-PT", "Independent"),
@@ -1600,12 +1645,12 @@ proprev.tib <- propseq.tib %>% filter(reversal)
 ## Municipality Analysis
 ```{r municipality-demographic}
 
-votes.2015.df <- read_csv("mxDistritos-data/raw-seccion-2015.csv", 
-                          col_types=cols( .default = col_double()))
-votes.2018.df <- read_csv("mxDistritos-data/raw-seccion-2018.csv",
-                          col_types=cols( .default = col_double()))
-votes.2018.df %<>%  clean_vraw()
-votes.2015.df %<>%  clean_vraw()
+#votes.2015.df <- read_csv("mxDistritos-data/raw-seccion-2015.csv", 
+#                          col_types=cols( .default = col_double()))
+#votes.2018.df <- read_csv("mxDistritos-data/raw-seccion-2018.csv",
+#                          col_types=cols( .default = col_double()))
+#votes.2018.df %<>%  clean_vraw()
+#votes.2015.df %<>%  clean_vraw()
 
 # municipality grouped data
 munis_actors_2015.tbl <- votes.2015.df %>% 
@@ -1776,12 +1821,10 @@ smd.2018.tbl %>% filter(winthresh <= prop_influence) %>% nrow()
 
 ```{r ideal-gerry}
 
-votes.2015.df <- read_csv("mxDistritos-data/raw-seccion-2015.csv", 
-                          col_types=cols( .default = col_double()))
-votes.2018.df <- read_csv("mxDistritos-data/raw-seccion-2018.csv",
-                          col_types=cols( .default = col_double()))
-votes.2018.df %<>%  clean_vraw()
-votes.2015.df %<>%  clean_vraw()
+#votes.2015.df <- read_csv("mxDistritos-data/raw-seccion-2015.csv",              col_types=cols( .default = col_double()))
+#votes.2018.df <- read_csv("mxDistritos-data/raw-seccion-2018.csv", col_types=cols( .default = col_double()))
+#votes.2018.df %<>%  clean_vraw()
+#votes.2015.df %<>%  clean_vraw()
 
 
 optGerry <- function(year, target_actor,mg=0,th=.5) {
