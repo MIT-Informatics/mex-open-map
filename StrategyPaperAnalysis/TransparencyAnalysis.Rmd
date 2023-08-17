@@ -725,7 +725,7 @@ plan.tgraph %>% ggraph() +
 
 
 #Outcome Analysis
-#Transparency Analysis
+#Strategy Analysis
 ```{r load-checkpoint-prepseat}
 rm(list=ls())
 planProp.df <- readRDS("planProp.RDS")
@@ -1541,6 +1541,35 @@ propmatch.df %>%
  as_gt() %>% 
   tab_header(title="Counterproposal Differences by Actor Type")
 
+my_tbl_stats <- function(data, variable, ..., rnd_digits=4) {
+  vec <- data[[variable]] 
+  v.mean <- mean(vec,na.rm=TRUE)
+  v.sd <-  sd(vec,na.rm=TRUE)
+  v.n <- length(na.omit(vec))
+  v.sem <- v.sd/sqrt(v.n)
+  #v.sig095 <- ifelse( (round(v.mean, digits=rnd_digits)!=0) & ((v.mean - 1.96 * v.sem)) & (0 <= (v.mean+1.96*v.sem)),"","*")
+    v.sig095 <- ifelse( (round(v.mean, digits=rnd_digits)!=0) && (0 < (v.mean - 1.96 * v.sem) | 0 > (v.mean+1.96*v.sem)),"*","")
+
+  v.min <- min(vec,na.rm=TRUE)
+  v.max <- max(vec,na.rm=TRUE)
+  dplyr::tibble(
+    mean = v.mean,
+    sd =  v.sd,
+    sem = v.sem,
+    sig095 = v.sig095,
+    min = v.min,
+    max = v.max,
+  )
+}
+
+my_style_sigfig<-function(x,digits=4,...) {
+  if (is.numeric(x)) {
+    style_sigfig(x,digits=digits,...)
+  }
+  else 
+    as.character(x)
+}
+
 propmatch.df %>% 
   filter(actortype %in% c("major","minor")) %>%
   mutate(actortype = fct_drop(actortype)) %>%
@@ -1548,13 +1577,17 @@ propmatch.df %>%
           "proposer_packed_difference",
           "proposer_composite_difference") %>%
   relocate("proposer_seat_difference","competitive_difference","proposer_win_difference","proposer_win_spread_difference", "proposer_competitive_margin_difference","proposer_packed_difference", "proposer_composite_difference") %>% 
-  tbl_summary(by=actortype,
+  tbl_custom_summary(by=actortype,
               type = list(everything() ~ "continuous"),
-          statistic = list(all_continuous() ~ "{mean} ({sd}) [{min}-{max}]"),
+          stat_fns = all_continuous() ~ my_tbl_stats,
+          #statistic = list(all_continuous() ~ "{mean} ({sd}) [{min} ... {max}]"),
+          statistic = list(all_continuous() ~ "{mean} {sig095} ({sem}) [{min} ... {max}]"),
           missing="no",
-          label = list("proposer_seat_difference" ~ "Proposer Seat Change","competitive_difference" ~ "Competitive Seat Change","proposer_win_difference"~ " Margin change in winning districts for proposer","proposer_competitive_margin_difference"~"Margin change for proposer in competitive districts" ,"proposer_composite_difference" ~ "Total Composite Score Change",
-                       "proposer_packed_difference" ~ "Margin change in districts packed for proposer")
+           digits = all_continuous() ~ my_style_sigfig,
+          label = list("proposer_seat_difference" ~ "Proposer Seat Increase ","competitive_difference" ~ "Competitive Seat Increase","proposer_win_difference"~ " Margin change in winning districts for proposer","proposer_competitive_margin_difference"~"Margin change for proposer in competitive districts" ,"proposer_composite_difference" ~ "Total Composite Score Change",
+                       "proposer_packed_difference" ~ "Margin change in districts packed for proposer", "proposer_win_spread_difference"~ " WIn margin increase within winning districts")
           ) %>%
+  modify_footnote(all_stat_cols() ~ "mean  (standard error) [min ... max] ; '*' = significance at the .95 level") %>%
  as_gt() %>% 
   tab_header(title="Counterproposal Differences by Actor Type - Theoretical Predictors")
  
@@ -1582,7 +1615,7 @@ propmatch.df %>%
   select("score_difference","split_difference", "competitive_difference", "population_difference", "win_difference","year","proposer_win_difference", "proposer_seat_difference", "competitive_margin_difference", "proposer_composite_difference",
          "compactness_difference") %>%
   tbl_summary(by=year,type = list(everything() ~ "continuous"),
-          statistic = list(all_continuous() ~ "{mean} ({sd}) [{min}-{max}]") )  %>% 
+          statistic = list(all_continuous() ~ "{mean} ({sd}) [{min} ... {max}]") )  %>% 
   as_gt() %>% 
   tab_header(title="Unanimous Proposals: Difference by Year (Major Parties) ")
 
