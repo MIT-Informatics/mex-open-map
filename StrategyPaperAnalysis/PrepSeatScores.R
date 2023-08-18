@@ -26,13 +26,28 @@ planProcessing.df <- local({
 
 # function to check and merge plans
 standardizePlan <- function(plan,edon,votedf) {
+  #ow <- options("warn") 
+  #oe <- options("error")
+  #on.exit({options(ow); options(oe)})
+  #options("warn"=2)
+  #options("error"=recover)
   if(is.null(plan)) { return (NULL)}
-  plan %<>% mutate(edon=edon)
-  plan %<>% left_join(votedf, by = c("seccion", "edon"))
   plan %<>% filter(!is.na(district) & district>0)
-  
+  if (!all((plan %>% group_by(seccion) %>% summarise(n()) %>% pull()) == 1)) {
+    warning("duplicate seccions in plan")
+  }
+  # address issue related to edon 21, clv2 PRI submission which is incorrectly entered
+  plan %<>% group_by(seccion) %>% slice_min(district,with_ties=FALSE) %>% ungroup()
+  # filter unnecessary edon
+  edont <- edon
+  votedf %<>% filter(edon==edont) 
+  plan %<>% left_join(votedf, by = c("seccion"), relationship="one-to-many")
+  #plan %<>% mutate(edon=edon)
+  #plan %<>% left_join(votedf, by = c("seccion", "edon"), relationship="one-to-many")
   return (plan)
 }
+
+#debug(standardizePlan)
 
 ###
 ### Create a tibble of plans with integrated , data which can then be used for various evaluations
